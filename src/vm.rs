@@ -1,4 +1,4 @@
-use crate::constants::{Instruction, REGISTER_COUNTER, Register};
+use crate::instructions::{Instruction, REGISTER_COUNTER, Register};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -55,7 +55,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 0,
-            value: Register::R1 as u16
+            value: Register::R1 as u16,
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
@@ -70,7 +70,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 1,
-            value: 5
+            value: 5,
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;

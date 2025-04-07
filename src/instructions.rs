@@ -164,7 +164,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 0,
-            value: Register::R1 as u16
+            value: Register::R1 as u16,
         };
         let encoded = instruction.encode();
         assert_eq!(0x1001, encoded);
@@ -178,7 +178,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 0,
-            value: Register::R1 as u16
+            value: Register::R1 as u16,
         };
         assert_eq!(instruction, decoded);
     }

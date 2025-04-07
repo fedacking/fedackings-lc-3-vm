@@ -1,6 +1,6 @@
 use vm::VirtualMachine;
 
-mod constants;
+mod instructions;
 mod vm;
 
 fn main() {
