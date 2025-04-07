@@ -20,18 +20,26 @@ impl VirtualMachine {
                 destination,
                 source_1,
                 source_2,
-            } => self.add(destination, source_1, source_2),
-            Instruction::AddImmediate {
-                destination,
-                source,
+                mode,
                 value,
-            } => (),
+            } => {
+                if mode == 0 {
+                    self.add(destination, source_1, source_2)
+                } else {
+                    self.add_immediate(destination, source_1, value);
+                }
+            }
             _ => (),
         }
     }
 
     fn add(&mut self, destination: Register, source_1: Register, sorce_2: Register) {
         let value = self.registers[source_1 as usize] + self.registers[sorce_2 as usize];
+        self.registers[destination as usize] = value;
+    }
+
+    fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
+        value += self.registers[source_1 as usize];
         self.registers[destination as usize] = value;
     }
 }
@@ -46,10 +54,27 @@ mod tests {
             destination: Register::R0,
             source_1: Register::R0,
             source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 2);
+    }
+
+    #[test]
+    fn vm_add_immediate() {
+        let instruction = Instruction::Add {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 1,
+            value: 5
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R1 as usize] = 2;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 5);
     }
 }

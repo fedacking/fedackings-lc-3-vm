@@ -98,11 +98,8 @@ pub enum Instruction {
         destination: Register,
         source_1: Register,
         source_2: Register,
-    },
-    AddImmediate {
-        destination: Register,
-        source: Register,
-        value: u16, // The value is actually limited to 5 bits
+        mode: u16,
+        value: u16,
     },
     Noop,
 }
@@ -113,23 +110,15 @@ impl Instruction {
             Instruction::Add {
                 destination,
                 source_1,
-                source_2,
-            } => {
-                ((OperationCode::Add as u16) << 12)
-                    + ((destination as u16) << 9)
-                    + ((source_1 as u16) << 6)
-                    + (source_2 as u16)
-            }
-            Instruction::AddImmediate {
-                destination,
-                source,
+                source_2: _,
+                mode,
                 value,
             } => {
                 ((OperationCode::Add as u16) << 12)
                     + ((destination as u16) << 9)
-                    + ((source as u16) << 6)
-                    + (1 << 5)
-                    + value
+                    + ((source_1 as u16) << 6)
+                    + (mode << 5)
+                    + (value) // Kinda hack because value contains all of the bits of source_2
             }
             Instruction::Noop => 0,
         }
@@ -143,6 +132,8 @@ impl Instruction {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),
                 source_2: Register::from_bits(repr, 0),
+                mode: from_bits(repr, 1, 5),
+                value: from_bits(repr, 5, 0),
             },
             OperationCode::Load => todo!(),
             OperationCode::Store => todo!(),
@@ -172,6 +163,8 @@ mod tests {
             destination: Register::R0,
             source_1: Register::R0,
             source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16
         };
         let encoded = instruction.encode();
         assert_eq!(0x1001, encoded);
@@ -184,6 +177,8 @@ mod tests {
             destination: Register::R0,
             source_1: Register::R0,
             source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16
         };
         assert_eq!(instruction, decoded);
     }
