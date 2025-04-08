@@ -174,6 +174,20 @@ pub enum Instruction {
         mode: u16,
         offset: u16,
     },
+    Store {
+        source: Register,
+        offset: u16,
+    },
+    StoreIndirect {
+        source: Register,
+        offset: u16,
+    },
+    StoreRegister {
+        // TODO: consider changing to a more descriptive name
+        source_1: Register,
+        source_2: Register,
+        offset: u16,
+    },
     Noop,
 }
 
@@ -259,6 +273,24 @@ impl Instruction {
                 mode,
                 offset,
             } => ((OperationCode::Jump as u16) << 12) + (mode << 11) + (offset & 0x7FF),
+            Instruction::Store { source, offset } => {
+                ((OperationCode::Store as u16) << 12) + ((source as u16) << 9) + (offset & 0x1FF)
+            }
+            Instruction::StoreIndirect { source, offset } => {
+                ((OperationCode::StoreIndirect as u16) << 12)
+                    + ((source as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::StoreRegister {
+                source_1,
+                source_2,
+                offset,
+            } => {
+                ((OperationCode::StoreRegister as u16) << 12)
+                    + ((source_1 as u16) << 9)
+                    + ((source_2 as u16) << 6)
+                    + (offset & 0x3F)
+            }
             Instruction::Noop => 0,
         }
     }
@@ -281,7 +313,10 @@ impl Instruction {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
             },
-            OperationCode::Store => todo!(),
+            OperationCode::Store => Instruction::Store {
+                source: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::JumpRegister => Instruction::JumpRegister {
                 source: Register::from_bits(repr, 6),
                 mode: from_bits(repr, 1, 11),
@@ -299,7 +334,11 @@ impl Instruction {
                 source: Register::from_bits(repr, 6),
                 offset: from_bits_signed(repr, 6, 0),
             },
-            OperationCode::StoreRegister => todo!(),
+            OperationCode::StoreRegister => Instruction::StoreRegister {
+                source_1: Register::from_bits(repr, 9),
+                source_2: Register::from_bits(repr, 6),
+                offset: from_bits_signed(repr, 6, 0),
+            },
             OperationCode::Rti => todo!(),
             OperationCode::Not => Instruction::Not {
                 destination: Register::from_bits(repr, 9),
@@ -309,7 +348,10 @@ impl Instruction {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
             },
-            OperationCode::StoreIndirect => todo!(),
+            OperationCode::StoreIndirect => Instruction::StoreIndirect {
+                source: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::Jump => Instruction::Jump {
                 source: Register::from_bits(repr, 6),
             },

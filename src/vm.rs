@@ -76,6 +76,13 @@ impl VirtualMachine {
                     self.jump_register(source);
                 }
             }
+            Instruction::Store { source, offset } => self.store(source, offset),
+            Instruction::StoreIndirect { source, offset } => self.store_indirect(source, offset),
+            Instruction::StoreRegister {
+                source_1,
+                source_2,
+                offset,
+            } => self.store_register(source_1, source_2, offset),
             Instruction::Noop => (),
         }
     }
@@ -170,6 +177,22 @@ impl VirtualMachine {
     fn jump_register(&mut self, source: Register) {
         self.registers[Register::R7 as usize] = self.registers[Register::PC as usize];
         self.registers[Register::PC as usize] = self.registers[source as usize];
+    }
+
+    fn store(&mut self, source: Register, offset: u16) {
+        let address: usize = offset.wrapping_add(self.registers[Register::PC as usize]) as usize;
+        self.memory[address] = self.registers[source as usize];
+    }
+
+    fn store_indirect(&mut self, source: Register, offset: u16) {
+        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset) as usize;
+        let address = self.memory[meta_address] as usize;
+        self.memory[address] = self.registers[source as usize];
+    }
+
+    fn store_register(&mut self, source_1: Register, source_2: Register, offset: u16) {
+        let address: usize = offset.wrapping_add(self.registers[source_2 as usize]) as usize;
+        self.memory[address] = self.registers[source_1 as usize];
     }
 }
 
@@ -515,5 +538,47 @@ mod tests {
         vm.registers[Register::R1 as usize] = 6;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::PC as usize], 6);
+    }
+
+    #[test]
+    fn vm_store() {
+        let instruction = Instruction::Store {
+            source: Register::R1,
+            offset: 0x40,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R1 as usize] = 6;
+        vm.execute_instruction(instruction);
+        let address = (vm.registers[Register::PC as usize] + 0x40) as usize;
+        assert_eq!(vm.memory[address], 6);
+    }
+
+    #[test]
+    fn vm_store_indirect() {
+        let instruction = Instruction::StoreIndirect {
+            source: Register::R1,
+            offset: 0x40,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R1 as usize] = 6;
+        let address = (vm.registers[Register::PC as usize] + 0x40) as usize;
+        vm.memory[address] = 50;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.memory[50], 6);
+    }
+
+    #[test]
+    fn vm_store_register() {
+        let instruction = Instruction::StoreRegister {
+            source_1: Register::R1,
+            source_2: Register::R2,
+            offset: 0x40,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R1 as usize] = 6;
+        vm.registers[Register::R2 as usize] = 40;
+        vm.execute_instruction(instruction);
+        let address = (40 + 0x40) as usize;
+        assert_eq!(vm.memory[address], 6);
     }
 }
