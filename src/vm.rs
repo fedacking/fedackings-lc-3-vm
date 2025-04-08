@@ -64,6 +64,18 @@ impl VirtualMachine {
                 offset,
             } => self.load_effective_address(destination, offset),
             Instruction::Branch { flag, offset } => self.branch(flag, offset),
+            Instruction::Jump { source } => self.jump(source),
+            Instruction::JumpRegister {
+                source,
+                mode,
+                offset,
+            } => {
+                if mode == 1 {
+                    self.jump_immediate(offset);
+                } else {
+                    self.jump_register(source);
+                }
+            }
             Instruction::Noop => (),
         }
     }
@@ -141,8 +153,23 @@ impl VirtualMachine {
     fn branch(&mut self, flag: ConditionFlag, offset: u16) {
         if flag as u16 == self.registers[Register::Cond as usize] {
             self.registers[Register::PC as usize] =
-                self.registers[Register::PC as usize].wrapping_add(offset)
+                self.registers[Register::PC as usize].wrapping_add(offset);
         }
+    }
+
+    fn jump(&mut self, source: Register) {
+        self.registers[Register::PC as usize] = self.registers[source as usize];
+    }
+
+    fn jump_immediate(&mut self, offset: u16) {
+        self.registers[Register::R7 as usize] = self.registers[Register::PC as usize];
+        let address = self.registers[Register::PC as usize].wrapping_add(offset);
+        self.registers[Register::PC as usize] = address;
+    }
+
+    fn jump_register(&mut self, source: Register) {
+        self.registers[Register::R7 as usize] = self.registers[Register::PC as usize];
+        self.registers[Register::PC as usize] = self.registers[source as usize];
     }
 }
 
@@ -448,5 +475,45 @@ mod tests {
         vm.registers[Register::Cond as usize] = ConditionFlag::Negative as u16;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::PC as usize], 3);
+    }
+
+    #[test]
+    fn vm_jump() {
+        let instruction = Instruction::Jump {
+            source: Register::R1,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::PC as usize] = 3;
+        vm.registers[Register::R1 as usize] = 6;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 6);
+    }
+
+    #[test]
+    fn vm_jump_immediate() {
+        let instruction = Instruction::JumpRegister {
+            source: Register::R1,
+            mode: 1,
+            offset: 0x8FF,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::PC as usize] = 3;
+        vm.registers[Register::R1 as usize] = 6;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 0x8FF + 3);
+    }
+
+    #[test]
+    fn vm_jump_register() {
+        let instruction = Instruction::JumpRegister {
+            source: Register::R1,
+            mode: 0,
+            offset: 0x40,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::PC as usize] = 3;
+        vm.registers[Register::R1 as usize] = 6;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 6);
     }
 }

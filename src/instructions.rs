@@ -166,6 +166,14 @@ pub enum Instruction {
         flag: ConditionFlag,
         offset: u16,
     },
+    Jump {
+        source: Register,
+    },
+    JumpRegister {
+        source: Register,
+        mode: u16,
+        offset: u16,
+    },
     Noop,
 }
 
@@ -243,6 +251,14 @@ impl Instruction {
             Instruction::Branch { flag, offset } => {
                 ((OperationCode::Branch as u16) << 12) + ((flag as u16) << 9) + (offset & 0x1FF)
             }
+            Instruction::Jump { source } => {
+                ((OperationCode::Jump as u16) << 12) + ((source as u16) << 6)
+            }
+            Instruction::JumpRegister {
+                source,
+                mode,
+                offset,
+            } => ((OperationCode::Jump as u16) << 12) + (mode << 11) + (offset & 0x7FF),
             Instruction::Noop => 0,
         }
     }
@@ -266,7 +282,11 @@ impl Instruction {
                 offset: from_bits_signed(repr, 9, 0),
             },
             OperationCode::Store => todo!(),
-            OperationCode::JumpRegister => todo!(),
+            OperationCode::JumpRegister => Instruction::JumpRegister {
+                source: Register::from_bits(repr, 6),
+                mode: from_bits(repr, 1, 11),
+                offset: from_bits_signed(repr, 11, 0),
+            },
             OperationCode::And => Instruction::And {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),
@@ -290,7 +310,9 @@ impl Instruction {
                 offset: from_bits_signed(repr, 9, 0),
             },
             OperationCode::StoreIndirect => todo!(),
-            OperationCode::Jump => todo!(),
+            OperationCode::Jump => Instruction::Jump {
+                source: Register::from_bits(repr, 6),
+            },
             OperationCode::Reserved => todo!(),
             OperationCode::LoadEffectiveAddress => Instruction::LoadEffectiveAddress {
                 destination: Register::from_bits(repr, 9),
