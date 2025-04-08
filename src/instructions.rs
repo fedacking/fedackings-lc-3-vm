@@ -95,7 +95,11 @@ impl Register {
             6 => Self::R6,
             7 => Self::R7,
             8 => Self::PC,
-            _ => Self::Cond,
+            9 => Self::Cond,
+            _ => {
+                /* consider blowing up */
+                todo!()
+            }
         }
     }
 

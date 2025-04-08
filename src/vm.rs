@@ -34,7 +34,8 @@ impl VirtualMachine {
     }
 
     fn add(&mut self, destination: Register, source_1: Register, sorce_2: Register) {
-        let value = self.registers[source_1 as usize].wrapping_add(self.registers[sorce_2 as usize]);
+        let value =
+            self.registers[source_1 as usize].wrapping_add(self.registers[sorce_2 as usize]);
         self.registers[destination as usize] = value;
     }
 
@@ -109,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn vm_add_shouldnt_panic_overflow(){
+    fn vm_add_shouldnt_panic_overflow() {
         let instruction = Instruction::Add {
             destination: Register::R0,
             source_1: Register::R0,
@@ -125,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn vm_add_immediate_shouldnt_panic_overflow(){
+    fn vm_add_immediate_shouldnt_panic_overflow() {
         let instruction = Instruction::Add {
             destination: Register::R0,
             source_1: Register::R0,
