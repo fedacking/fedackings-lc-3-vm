@@ -34,12 +34,12 @@ impl VirtualMachine {
     }
 
     fn add(&mut self, destination: Register, source_1: Register, sorce_2: Register) {
-        let value = self.registers[source_1 as usize] + self.registers[sorce_2 as usize];
+        let value = self.registers[source_1 as usize].wrapping_add(self.registers[sorce_2 as usize]);
         self.registers[destination as usize] = value;
     }
 
     fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
-        value += self.registers[source_1 as usize];
+        value = value.wrapping_add(self.registers[source_1 as usize]);
         self.registers[destination as usize] = value;
     }
 }
@@ -106,5 +106,36 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize].wrapping_add(16), 0);
+    }
+
+    #[test]
+    fn vm_add_shouldnt_panic_overflow(){
+        let instruction = Instruction::Add {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16, // 15
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = u16::MAX;
+        vm.registers[Register::R1 as usize] = 2;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 1);
+    }
+
+    #[test]
+    fn vm_add_immediate_shouldnt_panic_overflow(){
+        let instruction = Instruction::Add {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 1,
+            value: 0x000F, // 15
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = u16::MAX - 14;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0);
     }
 }
