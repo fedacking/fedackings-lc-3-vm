@@ -29,6 +29,10 @@ impl VirtualMachine {
                     self.add_immediate(destination, source_1, value);
                 }
             }
+            Instruction::Load {
+                destination,
+                offset,
+            } => self.load(destination, offset),
             Instruction::LoadIndirect {
                 destination,
                 offset,
@@ -61,8 +65,16 @@ impl VirtualMachine {
         self.update_flags(value);
     }
 
-    fn load_indirect(&mut self, destination: Register, offset: u16) {
+    fn load(&mut self, destination: Register, offset: u16) {
         let address = self.registers[Register::PC as usize].wrapping_add(offset);
+        let value = self.memory[address as usize];
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn load_indirect(&mut self, destination: Register, offset: u16) {
+        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
+        let address = self.memory[meta_address as usize];
         let value = self.memory[address as usize];
         self.registers[destination as usize] = value;
         self.update_flags(value);
@@ -191,8 +203,8 @@ mod tests {
     }
 
     #[test]
-    fn vm_load_indirect() {
-        let instruction = Instruction::LoadIndirect {
+    fn vm_load() {
+        let instruction = Instruction::Load {
             destination: Register::R0,
             offset: 3,
         };
@@ -207,8 +219,8 @@ mod tests {
     }
 
     #[test]
-    fn vm_load_indirect_negative() {
-        let instruction = Instruction::LoadIndirect {
+    fn vm_load_negative() {
+        let instruction = Instruction::Load {
             destination: Register::R0,
             offset: 0xFFFD,
         };

@@ -117,6 +117,10 @@ pub enum Instruction {
         mode: u16,
         value: u16,
     },
+    Load {
+        destination: Register,
+        offset: u16,
+    },
     LoadIndirect {
         destination: Register,
         offset: u16,
@@ -139,6 +143,14 @@ impl Instruction {
                     + ((source_1 as u16) << 6)
                     + (mode << 5)
                     + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
+            }
+            Instruction::Load {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::Load as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
             }
             Instruction::LoadIndirect {
                 destination,
@@ -163,7 +175,10 @@ impl Instruction {
                 mode: from_bits(repr, 1, 5),
                 value: from_bits_signed(repr, 5, 0),
             },
-            OperationCode::Load => todo!(),
+            OperationCode::Load => Instruction::Load {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::Store => todo!(),
             OperationCode::JumpRegister => todo!(),
             OperationCode::And => todo!(),
