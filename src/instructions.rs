@@ -66,6 +66,23 @@ pub enum ConditionFlag {
     Zero = 1 << 1,
     Negative = 1 << 2,
 }
+impl ConditionFlag {
+    fn from_u16(value: u16) -> Self {
+        match value {
+            1 => Self::Positive,
+            2 => Self::Zero,
+            4 => Self::Negative,
+            _ => {
+                /* consider blowing up */
+                todo!()
+            }
+        }
+    }
+
+    fn from_bits(value: u16, offset: u16) -> Self {
+        Self::from_u16(from_bits(value, 3, offset))
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Register {
@@ -145,6 +162,10 @@ pub enum Instruction {
         destination: Register,
         offset: u16,
     },
+    Branch {
+        flag: ConditionFlag,
+        offset: u16,
+    },
     Noop,
 }
 
@@ -198,7 +219,7 @@ impl Instruction {
                 source,
                 offset,
             } => {
-                ((OperationCode::Load as u16) << 12)
+                ((OperationCode::LoadRegister as u16) << 12)
                     + ((destination as u16) << 9)
                     + ((source as u16) << 6)
                     + (offset & 0x3F)
@@ -219,6 +240,9 @@ impl Instruction {
                     + ((destination as u16) << 9)
                     + (offset & 0x1FF)
             }
+            Instruction::Branch { flag, offset } => {
+                ((OperationCode::Branch as u16) << 12) + ((flag as u16) << 9) + (offset & 0x1FF)
+            }
             Instruction::Noop => 0,
         }
     }
@@ -226,7 +250,10 @@ impl Instruction {
     fn decode(repr: u16) -> Self {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
-            OperationCode::Branch => todo!(),
+            OperationCode::Branch => Instruction::Branch {
+                flag: ConditionFlag::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::Add => Instruction::Add {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),

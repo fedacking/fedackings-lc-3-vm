@@ -63,6 +63,7 @@ impl VirtualMachine {
                 destination,
                 offset,
             } => self.load_effective_address(destination, offset),
+            Instruction::Branch { flag, offset } => self.branch(flag, offset),
             Instruction::Noop => (),
         }
     }
@@ -135,6 +136,13 @@ impl VirtualMachine {
         let value = self.registers[Register::PC as usize].wrapping_add(offset);
         self.registers[destination as usize] = value;
         self.update_flags(value);
+    }
+
+    fn branch(&mut self, flag: ConditionFlag, offset: u16) {
+        if flag as u16 == self.registers[Register::Cond as usize] {
+            self.registers[Register::PC as usize] =
+                self.registers[Register::PC as usize].wrapping_add(offset)
+        }
     }
 }
 
@@ -415,5 +423,30 @@ mod tests {
             vm.registers[Register::Cond as usize],
             ConditionFlag::Positive as u16
         );
+    }
+
+    #[test]
+    fn vm_branch() {
+        let instruction = Instruction::Branch {
+            flag: ConditionFlag::Negative,
+            offset: 16,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::Cond as usize] = ConditionFlag::Negative as u16;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 16);
+    }
+
+    #[test]
+    fn vm_branch_fail() {
+        let instruction = Instruction::Branch {
+            flag: ConditionFlag::Positive,
+            offset: 16,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::PC as usize] = 3;
+        vm.registers[Register::Cond as usize] = ConditionFlag::Negative as u16;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 3);
     }
 }
