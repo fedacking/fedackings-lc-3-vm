@@ -3,6 +3,18 @@ fn from_bits(value: u16, size: u16, offset: u16) -> u16 {
     (value >> offset) & ((1 << size) - 1)
 }
 
+/// Utility function that grabs the results of from_bits and extends
+/// the sign by adding 1s to the missing bits. This conforms to the two's
+/// compliment signed number scheme
+pub fn from_bits_signed(value: u16, size: u16) -> u16 {
+    if ((value >> (size - 1)) & 1) == 1 {
+        let mask = 0xFFFF << (size - 1);
+        from_bits(value, size - 1, 0) | mask
+    } else {
+        from_bits(value, size - 1, 0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum OperationCode {
     Branch,
