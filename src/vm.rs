@@ -42,6 +42,10 @@ impl VirtualMachine {
                     self.and_immediate(destination, source_1, value);
                 }
             }
+            Instruction::Not {
+                destination,
+                source,
+            } => self.not(destination, source),
             Instruction::Load {
                 destination,
                 offset,
@@ -95,6 +99,12 @@ impl VirtualMachine {
 
     fn and_immediate(&mut self, destination: Register, source: Register, mut value: u16) {
         value = value & self.registers[source as usize];
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn not(&mut self, destination: Register, source: Register) {
+        let value = !(self.registers[source as usize]);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -173,45 +183,6 @@ mod tests {
     }
 
     #[test]
-    fn vm_and() {
-        let instruction = Instruction::And {
-            destination: Register::R0,
-            source_1: Register::R0,
-            source_2: Register::R1,
-            mode: 0,
-            value: Register::R1 as u16,
-        };
-        let mut vm = VirtualMachine::new();
-        vm.registers[Register::R0 as usize] = 0xFFF0;
-        vm.registers[Register::R1 as usize] = 0x0FFF;
-        vm.execute_instruction(instruction);
-        assert_eq!(vm.registers[Register::R0 as usize], 0x0FF0);
-        assert_eq!(
-            vm.registers[Register::Cond as usize],
-            ConditionFlag::Positive as u16
-        );
-    }
-
-    #[test]
-    fn vm_and_immediate() {
-        let instruction = Instruction::And {
-            destination: Register::R0,
-            source_1: Register::R0,
-            source_2: Register::R1,
-            mode: 1,
-            value: 0xFFFF,
-        };
-        let mut vm = VirtualMachine::new();
-        vm.registers[Register::R0 as usize] = 0xFF00;
-        vm.execute_instruction(instruction);
-        assert_eq!(vm.registers[Register::R0 as usize], 0xFF00);
-        assert_eq!(
-            vm.registers[Register::Cond as usize],
-            ConditionFlag::Negative as u16
-        );
-    }
-
-    #[test]
     fn vm_add_immediate_negative() {
         let instruction = Instruction::Add {
             destination: Register::R0,
@@ -285,6 +256,61 @@ mod tests {
         assert_eq!(
             vm.registers[Register::Cond as usize],
             ConditionFlag::Zero as u16
+        );
+    }
+
+    #[test]
+    fn vm_and() {
+        let instruction = Instruction::And {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = 0xFFF0;
+        vm.registers[Register::R1 as usize] = 0x0FFF;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0x0FF0);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_and_immediate() {
+        let instruction = Instruction::And {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 1,
+            value: 0xFFFF,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = 0xFF00;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0xFF00);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Negative as u16
+        );
+    }
+
+    #[test]
+    fn vm_not() {
+        let instruction = Instruction::Not {
+            destination: Register::R0,
+            source: Register::R0,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = 0xFF00;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0x00FF);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
         );
     }
 
