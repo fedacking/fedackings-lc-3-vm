@@ -121,7 +121,16 @@ pub enum Instruction {
         destination: Register,
         offset: u16,
     },
+    LoadRegister {
+        destination: Register,
+        source: Register,
+        offset: u16,
+    },
     LoadIndirect {
+        destination: Register,
+        offset: u16,
+    },
+    LoadEffectiveAddress {
         destination: Register,
         offset: u16,
     },
@@ -152,11 +161,29 @@ impl Instruction {
                     + ((destination as u16) << 9)
                     + (offset & 0x1FF)
             }
+            Instruction::LoadRegister {
+                destination,
+                source,
+                offset,
+            } => {
+                ((OperationCode::Load as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + ((source as u16) << 6)
+                    + (offset & 0x3F)
+            }
             Instruction::LoadIndirect {
                 destination,
                 offset,
             } => {
                 ((OperationCode::LoadIndirect as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::LoadEffectiveAddress {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::LoadEffectiveAddress as u16) << 12)
                     + ((destination as u16) << 9)
                     + (offset & 0x1FF)
             }
@@ -182,7 +209,11 @@ impl Instruction {
             OperationCode::Store => todo!(),
             OperationCode::JumpRegister => todo!(),
             OperationCode::And => todo!(),
-            OperationCode::LoadRegister => todo!(),
+            OperationCode::LoadRegister => Instruction::LoadRegister {
+                destination: Register::from_bits(repr, 9),
+                source: Register::from_bits(repr, 6),
+                offset: from_bits_signed(repr, 6, 0),
+            },
             OperationCode::StoreRegister => todo!(),
             OperationCode::Rti => todo!(),
             OperationCode::Not => todo!(),
@@ -193,7 +224,10 @@ impl Instruction {
             OperationCode::StoreIndirect => todo!(),
             OperationCode::Jump => todo!(),
             OperationCode::Reserved => todo!(),
-            OperationCode::LoadEffectiveAddress => todo!(),
+            OperationCode::LoadEffectiveAddress => Instruction::LoadEffectiveAddress {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::ExecuteTrap => todo!(),
         }
     }

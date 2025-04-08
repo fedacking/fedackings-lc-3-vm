@@ -33,10 +33,19 @@ impl VirtualMachine {
                 destination,
                 offset,
             } => self.load(destination, offset),
+            Instruction::LoadRegister {
+                destination,
+                source,
+                offset,
+            } => self.load_register(destination, source, offset),
             Instruction::LoadIndirect {
                 destination,
                 offset,
             } => self.load_indirect(destination, offset),
+            Instruction::LoadEffectiveAddress {
+                destination,
+                offset,
+            } => self.load_effective_address(destination, offset),
             Instruction::Noop => (),
         }
     }
@@ -52,15 +61,15 @@ impl VirtualMachine {
         }
     }
 
-    fn add(&mut self, destination: Register, source_1: Register, sorce_2: Register) {
+    fn add(&mut self, destination: Register, source_1: Register, source_2: Register) {
         let value =
-            self.registers[source_1 as usize].wrapping_add(self.registers[sorce_2 as usize]);
+            self.registers[source_1 as usize].wrapping_add(self.registers[source_2 as usize]);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
 
-    fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
-        value = value.wrapping_add(self.registers[source_1 as usize]);
+    fn add_immediate(&mut self, destination: Register, source: Register, mut value: u16) {
+        value = value.wrapping_add(self.registers[source as usize]);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -72,10 +81,23 @@ impl VirtualMachine {
         self.update_flags(value);
     }
 
+    fn load_register(&mut self, destination: Register, source: Register, offset: u16) {
+        let address = self.registers[source as usize].wrapping_add(offset);
+        let value = self.memory[address as usize];
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
     fn load_indirect(&mut self, destination: Register, offset: u16) {
         let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
         let address = self.memory[meta_address as usize];
         let value = self.memory[address as usize];
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn load_effective_address(&mut self, destination: Register, offset: u16) {
+        let value = self.registers[Register::PC as usize].wrapping_add(offset);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -264,6 +286,41 @@ mod tests {
         vm.registers[Register::PC as usize] = 6;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 42);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_load_register() {
+        let instruction = Instruction::LoadRegister {
+            destination: Register::R0,
+            source: Register::R0,
+            offset: 3,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.memory[45] = 42;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 45);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_load_effective_address() {
+        let instruction = Instruction::LoadEffectiveAddress {
+            destination: Register::R0,
+            offset: 3,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.memory[45] = 42;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 3);
         assert_eq!(
             vm.registers[Register::Cond as usize],
             ConditionFlag::Positive as u16
