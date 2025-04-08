@@ -29,7 +29,11 @@ impl VirtualMachine {
                     self.add_immediate(destination, source_1, value);
                 }
             }
-            _ => (),
+            Instruction::LoadIndirect {
+                destination,
+                offset,
+            } => self.load_indirect(destination, offset),
+            Instruction::Noop => (),
         }
     }
 
@@ -53,6 +57,13 @@ impl VirtualMachine {
 
     fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
         value = value.wrapping_add(self.registers[source_1 as usize]);
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn load_indirect(&mut self, destination: Register, offset: u16) {
+        let address = self.registers[Register::PC as usize].wrapping_add(offset);
+        let value = self.memory[address as usize];
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -176,6 +187,33 @@ mod tests {
         assert_eq!(
             vm.registers[Register::Cond as usize],
             ConditionFlag::Zero as u16
+        );
+    }
+
+    #[test]
+    fn vm_load_indirect() {
+        let instruction = Instruction::LoadIndirect { destination: Register::R0, offset: 3 };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 45);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_load_indirect_negative() {
+        let instruction = Instruction::LoadIndirect { destination: Register::R0, offset: 0xFFFD };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.registers[Register::PC as usize] = 6;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 45);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
         );
     }
 }

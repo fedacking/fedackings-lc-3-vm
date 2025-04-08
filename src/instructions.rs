@@ -117,6 +117,10 @@ pub enum Instruction {
         mode: u16,
         value: u16,
     },
+    LoadIndirect {
+        destination: Register,
+        offset: u16,
+    },
     Noop,
 }
 
@@ -135,6 +139,12 @@ impl Instruction {
                     + ((source_1 as u16) << 6)
                     + (mode << 5)
                     + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
+            }
+            Instruction::LoadIndirect {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::LoadIndirect as u16) << 12) + ((destination as u16) << 9) + (offset & 0x1FF)
             }
             Instruction::Noop => 0,
         }
@@ -159,7 +169,10 @@ impl Instruction {
             OperationCode::StoreRegister => todo!(),
             OperationCode::Rti => todo!(),
             OperationCode::Not => todo!(),
-            OperationCode::LoadIndirect => todo!(),
+            OperationCode::LoadIndirect => Instruction::LoadIndirect {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::StoreIndirect => todo!(),
             OperationCode::Jump => todo!(),
             OperationCode::Reserved => todo!(),
