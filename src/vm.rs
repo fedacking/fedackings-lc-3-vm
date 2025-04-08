@@ -234,4 +234,39 @@ mod tests {
             ConditionFlag::Positive as u16
         );
     }
+
+    #[test]
+    fn vm_load_indirect() {
+        let instruction = Instruction::LoadIndirect {
+            destination: Register::R0,
+            offset: 3,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.memory[45] = 42;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 42);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_load_indirect_negative() {
+        let instruction = Instruction::LoadIndirect {
+            destination: Register::R0,
+            offset: 0xFFFD,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.memory[3] = 45;
+        vm.memory[45] = 42;
+        vm.registers[Register::PC as usize] = 6;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 42);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
 }
