@@ -1,4 +1,4 @@
-use crate::instructions::{Instruction, REGISTER_COUNTER, Register};
+use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -33,20 +33,35 @@ impl VirtualMachine {
         }
     }
 
+    fn update_flags(&mut self, value: u16) {
+        // The wrapping add is necessary, because u16 doesn't know that a leading 1 indicates
+        // a negative value
+        self.registers[Register::Cond as usize] = match value.wrapping_add(1 << 15).cmp(&(1 << 15))
+        {
+            std::cmp::Ordering::Less => ConditionFlag::Negative as u16,
+            std::cmp::Ordering::Equal => ConditionFlag::Zero as u16,
+            std::cmp::Ordering::Greater => ConditionFlag::Positive as u16,
+        }
+    }
+
     fn add(&mut self, destination: Register, source_1: Register, sorce_2: Register) {
         let value =
             self.registers[source_1 as usize].wrapping_add(self.registers[sorce_2 as usize]);
         self.registers[destination as usize] = value;
+        self.update_flags(value);
     }
 
     fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
         value = value.wrapping_add(self.registers[source_1 as usize]);
         self.registers[destination as usize] = value;
+        self.update_flags(value);
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::instructions::ConditionFlag;
+
     use super::*;
 
     #[test]
@@ -62,6 +77,10 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 2);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
     }
 
     #[test]
@@ -77,6 +96,10 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 5);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
     }
 
     #[test]
@@ -92,6 +115,10 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 0xFFFF);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Negative as u16
+        );
     }
 
     #[test]
@@ -107,6 +134,10 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize].wrapping_add(16), 0);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Negative as u16
+        );
     }
 
     #[test]
@@ -123,6 +154,10 @@ mod tests {
         vm.registers[Register::R1 as usize] = 2;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 1);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
     }
 
     #[test]
@@ -138,5 +173,9 @@ mod tests {
         vm.registers[Register::R0 as usize] = u16::MAX - 14;
         vm.execute_instruction(instruction);
         assert_eq!(vm.registers[Register::R0 as usize], 0);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Zero as u16
+        );
     }
 }
