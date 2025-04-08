@@ -24,9 +24,22 @@ impl VirtualMachine {
                 value,
             } => {
                 if mode == 0 {
-                    self.add(destination, source_1, source_2)
+                    self.add(destination, source_1, source_2);
                 } else {
                     self.add_immediate(destination, source_1, value);
+                }
+            }
+            Instruction::And {
+                destination,
+                source_1,
+                source_2,
+                mode,
+                value,
+            } => {
+                if mode == 0 {
+                    self.and(destination, source_1, source_2);
+                } else {
+                    self.and_immediate(destination, source_1, value);
                 }
             }
             Instruction::Load {
@@ -70,6 +83,18 @@ impl VirtualMachine {
 
     fn add_immediate(&mut self, destination: Register, source: Register, mut value: u16) {
         value = value.wrapping_add(self.registers[source as usize]);
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn and(&mut self, destination: Register, source_1: Register, source_2: Register) {
+        let value = self.registers[source_1 as usize] & self.registers[source_2 as usize];
+        self.registers[destination as usize] = value;
+        self.update_flags(value);
+    }
+
+    fn and_immediate(&mut self, destination: Register, source: Register, mut value: u16) {
+        value = value & self.registers[source as usize];
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -144,6 +169,45 @@ mod tests {
         assert_eq!(
             vm.registers[Register::Cond as usize],
             ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_and() {
+        let instruction = Instruction::And {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 0,
+            value: Register::R1 as u16,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = 0xFFF0;
+        vm.registers[Register::R1 as usize] = 0x0FFF;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0x0FF0);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Positive as u16
+        );
+    }
+
+    #[test]
+    fn vm_and_immediate() {
+        let instruction = Instruction::And {
+            destination: Register::R0,
+            source_1: Register::R0,
+            source_2: Register::R1,
+            mode: 1,
+            value: 0xFFFF,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::R0 as usize] = 0xFF00;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::R0 as usize], 0xFF00);
+        assert_eq!(
+            vm.registers[Register::Cond as usize],
+            ConditionFlag::Negative as u16
         );
     }
 
