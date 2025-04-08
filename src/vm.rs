@@ -192,7 +192,10 @@ mod tests {
 
     #[test]
     fn vm_load_indirect() {
-        let instruction = Instruction::LoadIndirect { destination: Register::R0, offset: 3 };
+        let instruction = Instruction::LoadIndirect {
+            destination: Register::R0,
+            offset: 3,
+        };
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.execute_instruction(instruction);
@@ -205,7 +208,10 @@ mod tests {
 
     #[test]
     fn vm_load_indirect_negative() {
-        let instruction = Instruction::LoadIndirect { destination: Register::R0, offset: 0xFFFD };
+        let instruction = Instruction::LoadIndirect {
+            destination: Register::R0,
+            offset: 0xFFFD,
+        };
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.registers[Register::PC as usize] = 6;

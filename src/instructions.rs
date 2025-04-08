@@ -144,7 +144,9 @@ impl Instruction {
                 destination,
                 offset,
             } => {
-                ((OperationCode::LoadIndirect as u16) << 12) + ((destination as u16) << 9) + (offset & 0x1FF)
+                ((OperationCode::LoadIndirect as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
             }
             Instruction::Noop => 0,
         }
