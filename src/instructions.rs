@@ -3,15 +3,15 @@ fn from_bits(value: u16, size: u16, offset: u16) -> u16 {
     (value >> offset) & ((1 << size) - 1)
 }
 
-/// Utility function that grabs the results of from_bits and extends
+/// Utility function that grabs the u16 and extends
 /// the sign by adding 1s to the missing bits. This conforms to the two's
 /// compliment signed number scheme
-pub fn from_bits_signed(value: u16, size: u16) -> u16 {
+fn from_bits_signed(value: u16, size: u16, offset: u16) -> u16 {
     if ((value >> (size - 1)) & 1) == 1 {
         let mask = 0xFFFF << (size - 1);
-        from_bits(value, size - 1, 0) | mask
+        from_bits(value, size - 1, offset) | mask
     } else {
-        from_bits(value, size - 1, 0)
+        from_bits(value, size - 1, offset)
     }
 }
 
@@ -130,7 +130,7 @@ impl Instruction {
                     + ((destination as u16) << 9)
                     + ((source_1 as u16) << 6)
                     + (mode << 5)
-                    + (value) // Kinda hack because value contains all of the bits of source_2
+                    + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
             }
             Instruction::Noop => 0,
         }
@@ -145,7 +145,7 @@ impl Instruction {
                 source_1: Register::from_bits(repr, 6),
                 source_2: Register::from_bits(repr, 0),
                 mode: from_bits(repr, 1, 5),
-                value: from_bits(repr, 5, 0),
+                value: from_bits_signed(repr, 5, 0),
             },
             OperationCode::Load => todo!(),
             OperationCode::Store => todo!(),

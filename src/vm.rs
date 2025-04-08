@@ -1,4 +1,4 @@
-use crate::instructions::{Instruction, REGISTER_COUNTER, Register, from_bits_signed};
+use crate::instructions::{Instruction, REGISTER_COUNTER, Register};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -39,9 +39,6 @@ impl VirtualMachine {
     }
 
     fn add_immediate(&mut self, destination: Register, source_1: Register, mut value: u16) {
-        // It's not great that the logic for signing is here
-        // but it simplifies our encoding decoding process
-        value = from_bits_signed(value, 5);
         value += self.registers[source_1 as usize];
         self.registers[destination as usize] = value;
     }
@@ -88,7 +85,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 1,
-            value: 0x1F, // -1
+            value: 0xFFFF, // -1
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
@@ -103,7 +100,7 @@ mod tests {
             source_1: Register::R0,
             source_2: Register::R1,
             mode: 1,
-            value: 0x10, // -16
+            value: 0xFFF0, // -16
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
