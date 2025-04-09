@@ -192,7 +192,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    fn encode(&self) -> u16 {
+    pub fn encode(&self) -> u16 {
         match *self {
             Instruction::Add {
                 destination,
@@ -295,7 +295,7 @@ impl Instruction {
         }
     }
 
-    fn decode(repr: u16) -> Self {
+    pub fn decode(repr: u16) -> Self {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
             OperationCode::Branch => Instruction::Branch {
