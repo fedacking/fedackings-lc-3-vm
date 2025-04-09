@@ -61,10 +61,27 @@ impl OperationCode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum ConditionFlag {
+pub enum ConditionFlag {
     Positive = 1 << 0,
     Zero = 1 << 1,
     Negative = 1 << 2,
+}
+impl ConditionFlag {
+    fn from_u16(value: u16) -> Self {
+        match value {
+            1 => Self::Positive,
+            2 => Self::Zero,
+            4 => Self::Negative,
+            _ => {
+                /* consider blowing up */
+                todo!()
+            }
+        }
+    }
+
+    fn from_bits(value: u16, offset: u16) -> Self {
+        Self::from_u16(from_bits(value, 3, offset))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -117,6 +134,60 @@ pub enum Instruction {
         mode: u16,
         value: u16,
     },
+    And {
+        destination: Register,
+        source_1: Register,
+        source_2: Register,
+        mode: u16,
+        value: u16,
+    },
+    Not {
+        destination: Register,
+        source: Register,
+    },
+    Load {
+        destination: Register,
+        offset: u16,
+    },
+    LoadRegister {
+        destination: Register,
+        source: Register,
+        offset: u16,
+    },
+    LoadIndirect {
+        destination: Register,
+        offset: u16,
+    },
+    LoadEffectiveAddress {
+        destination: Register,
+        offset: u16,
+    },
+    Branch {
+        flag: ConditionFlag,
+        offset: u16,
+    },
+    Jump {
+        source: Register,
+    },
+    JumpRegister {
+        source: Register,
+        mode: u16,
+        offset: u16,
+    },
+    Store {
+        source: Register,
+        offset: u16,
+    },
+    StoreIndirect {
+        source: Register,
+        offset: u16,
+    },
+    StoreRegister {
+        // TODO: consider changing to a more descriptive name
+        source_1: Register,
+        source_2: Register,
+        offset: u16,
+    },
     Noop,
 }
 
@@ -136,6 +207,90 @@ impl Instruction {
                     + (mode << 5)
                     + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
             }
+            Instruction::And {
+                destination,
+                source_1,
+                source_2,
+                mode,
+                value,
+            } => {
+                ((OperationCode::And as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + ((source_1 as u16) << 6)
+                    + (mode << 5)
+                    + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
+            }
+            Instruction::Not {
+                destination,
+                source,
+            } => {
+                ((OperationCode::Not as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + ((source as u16) << 6)
+            }
+            Instruction::Load {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::Load as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::LoadRegister {
+                destination,
+                source,
+                offset,
+            } => {
+                ((OperationCode::LoadRegister as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + ((source as u16) << 6)
+                    + (offset & 0x3F)
+            }
+            Instruction::LoadIndirect {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::LoadIndirect as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::LoadEffectiveAddress {
+                destination,
+                offset,
+            } => {
+                ((OperationCode::LoadEffectiveAddress as u16) << 12)
+                    + ((destination as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::Branch { flag, offset } => {
+                ((OperationCode::Branch as u16) << 12) + ((flag as u16) << 9) + (offset & 0x1FF)
+            }
+            Instruction::Jump { source } => {
+                ((OperationCode::Jump as u16) << 12) + ((source as u16) << 6)
+            }
+            Instruction::JumpRegister {
+                source,
+                mode,
+                offset,
+            } => ((OperationCode::Jump as u16) << 12) + (mode << 11) + (offset & 0x7FF),
+            Instruction::Store { source, offset } => {
+                ((OperationCode::Store as u16) << 12) + ((source as u16) << 9) + (offset & 0x1FF)
+            }
+            Instruction::StoreIndirect { source, offset } => {
+                ((OperationCode::StoreIndirect as u16) << 12)
+                    + ((source as u16) << 9)
+                    + (offset & 0x1FF)
+            }
+            Instruction::StoreRegister {
+                source_1,
+                source_2,
+                offset,
+            } => {
+                ((OperationCode::StoreRegister as u16) << 12)
+                    + ((source_1 as u16) << 9)
+                    + ((source_2 as u16) << 6)
+                    + (offset & 0x3F)
+            }
             Instruction::Noop => 0,
         }
     }
@@ -143,7 +298,10 @@ impl Instruction {
     fn decode(repr: u16) -> Self {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
-            OperationCode::Branch => todo!(),
+            OperationCode::Branch => Instruction::Branch {
+                flag: ConditionFlag::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::Add => Instruction::Add {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),
@@ -151,19 +309,57 @@ impl Instruction {
                 mode: from_bits(repr, 1, 5),
                 value: from_bits_signed(repr, 5, 0),
             },
-            OperationCode::Load => todo!(),
-            OperationCode::Store => todo!(),
-            OperationCode::JumpRegister => todo!(),
-            OperationCode::And => todo!(),
-            OperationCode::LoadRegister => todo!(),
-            OperationCode::StoreRegister => todo!(),
+            OperationCode::Load => Instruction::Load {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
+            OperationCode::Store => Instruction::Store {
+                source: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
+            OperationCode::JumpRegister => Instruction::JumpRegister {
+                source: Register::from_bits(repr, 6),
+                mode: from_bits(repr, 1, 11),
+                offset: from_bits_signed(repr, 11, 0),
+            },
+            OperationCode::And => Instruction::And {
+                destination: Register::from_bits(repr, 9),
+                source_1: Register::from_bits(repr, 6),
+                source_2: Register::from_bits(repr, 0),
+                mode: from_bits(repr, 1, 5),
+                value: from_bits_signed(repr, 5, 0),
+            },
+            OperationCode::LoadRegister => Instruction::LoadRegister {
+                destination: Register::from_bits(repr, 9),
+                source: Register::from_bits(repr, 6),
+                offset: from_bits_signed(repr, 6, 0),
+            },
+            OperationCode::StoreRegister => Instruction::StoreRegister {
+                source_1: Register::from_bits(repr, 9),
+                source_2: Register::from_bits(repr, 6),
+                offset: from_bits_signed(repr, 6, 0),
+            },
             OperationCode::Rti => todo!(),
-            OperationCode::Not => todo!(),
-            OperationCode::LoadIndirect => todo!(),
-            OperationCode::StoreIndirect => todo!(),
-            OperationCode::Jump => todo!(),
+            OperationCode::Not => Instruction::Not {
+                destination: Register::from_bits(repr, 9),
+                source: Register::from_bits(repr, 6),
+            },
+            OperationCode::LoadIndirect => Instruction::LoadIndirect {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
+            OperationCode::StoreIndirect => Instruction::StoreIndirect {
+                source: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
+            OperationCode::Jump => Instruction::Jump {
+                source: Register::from_bits(repr, 6),
+            },
             OperationCode::Reserved => todo!(),
-            OperationCode::LoadEffectiveAddress => todo!(),
+            OperationCode::LoadEffectiveAddress => Instruction::LoadEffectiveAddress {
+                destination: Register::from_bits(repr, 9),
+                offset: from_bits_signed(repr, 9, 0),
+            },
             OperationCode::ExecuteTrap => todo!(),
         }
     }
