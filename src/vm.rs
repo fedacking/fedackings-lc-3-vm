@@ -1,4 +1,6 @@
-use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register};
+use std::io::Read;
+
+use crate::instructions::{ConditionFlag, Instruction, Register, TrapCode, REGISTER_COUNTER};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -8,7 +10,10 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new() -> Self {
+    /// starts the visual machine with everything with 0s
+    /// We use it for internal testing
+    /// To launch a proper fm use from_program
+    fn new() -> Self {
         VirtualMachine {
             memory: [0; u16::MAX as usize],
             registers: [0; REGISTER_COUNTER],
@@ -16,89 +21,95 @@ impl VirtualMachine {
         }
     }
 
+    /// Starts a visual machines with the loaded program. All registers
+    /// are started with 0s, except the Program counter, which starts at
+    /// 0x3000. You can start it's execution with execute
+    pub fn from_program(program: [u16; u16::MAX as usize]) -> Self {
+        let mut registers = [0; REGISTER_COUNTER];
+        registers[Register::PC as usize] = 0x3000;
+        VirtualMachine { memory: program, registers, running: false }
+    }
+
     fn execute_instruction(&mut self, instruction: Instruction) {
         match instruction {
             Instruction::Add {
-                destination,
-                source_1,
-                source_2,
-                mode,
-                value,
-            } => {
-                if mode == 0 {
-                    self.add(destination, source_1, source_2);
-                } else {
-                    self.add_immediate(destination, source_1, value);
-                }
-            }
+                        destination,
+                        source_1,
+                        source_2,
+                        mode,
+                        value,
+                    } => {
+                        if mode == 0 {
+                            self.add(destination, source_1, source_2);
+                        } else {
+                            self.add_immediate(destination, source_1, value);
+                        }
+                    }
             Instruction::And {
-                destination,
-                source_1,
-                source_2,
-                mode,
-                value,
-            } => {
-                if mode == 0 {
-                    self.and(destination, source_1, source_2);
-                } else {
-                    self.and_immediate(destination, source_1, value);
-                }
-            }
+                        destination,
+                        source_1,
+                        source_2,
+                        mode,
+                        value,
+                    } => {
+                        if mode == 0 {
+                            self.and(destination, source_1, source_2);
+                        } else {
+                            self.and_immediate(destination, source_1, value);
+                        }
+                    }
             Instruction::Not {
-                destination,
-                source,
-            } => self.not(destination, source),
+                        destination,
+                        source,
+                    } => self.not(destination, source),
             Instruction::Load {
-                destination,
-                offset,
-            } => self.load(destination, offset),
+                        destination,
+                        offset,
+                    } => self.load(destination, offset),
             Instruction::LoadRegister {
-                destination,
-                source,
-                offset,
-            } => self.load_register(destination, source, offset),
+                        destination,
+                        source,
+                        offset,
+                    } => self.load_register(destination, source, offset),
             Instruction::LoadIndirect {
-                destination,
-                offset,
-            } => self.load_indirect(destination, offset),
+                        destination,
+                        offset,
+                    } => self.load_indirect(destination, offset),
             Instruction::LoadEffectiveAddress {
-                destination,
-                offset,
-            } => self.load_effective_address(destination, offset),
+                        destination,
+                        offset,
+                    } => self.load_effective_address(destination, offset),
             Instruction::Branch { flag, offset } => self.branch(flag, offset),
             Instruction::Jump { source } => self.jump(source),
             Instruction::JumpRegister {
-                source,
-                mode,
-                offset,
-            } => {
-                if mode == 1 {
-                    self.jump_immediate(offset);
-                } else {
-                    self.jump_register(source);
-                }
-            }
+                        source,
+                        mode,
+                        offset,
+                    } => {
+                        if mode == 1 {
+                            self.jump_immediate(offset);
+                        } else {
+                            self.jump_register(source);
+                        }
+                    }
             Instruction::Store { source, offset } => self.store(source, offset),
             Instruction::StoreIndirect { source, offset } => self.store_indirect(source, offset),
             Instruction::StoreRegister {
-                source_1,
-                source_2,
-                offset,
-            } => self.store_register(source_1, source_2, offset),
+                        source_1,
+                        source_2,
+                        offset,
+                    } => self.store_register(source_1, source_2, offset),
+            Instruction::Trap { routine } => self.trap(routine),
             Instruction::Noop => (),
         }
     }
 
+    /// Starts the executions of the program. Stops on a TRAP_HALT instruction
+    /// Else it continues running over memory.
     pub fn execute(&mut self) {
         self.running = true;
         while self.running {
             let pc = self.registers[Register::PC as usize] as usize;
-            if pc == 0xFFFF {
-                // We usually halt on a TRAP_HALT instruction, but implementation
-                // of trap instructions is TODO
-                self.running = false;
-                break;
-            }
             self.registers[Register::PC as usize] += 1;
             let instruction = Instruction::decode(self.memory[pc]);
             self.execute_instruction(instruction);
@@ -211,6 +222,51 @@ impl VirtualMachine {
     fn store_register(&mut self, source_1: Register, source_2: Register, offset: u16) {
         let address: usize = offset.wrapping_add(self.registers[source_2 as usize]) as usize;
         self.memory[address] = self.registers[source_1 as usize];
+    }
+
+    fn trap(&mut self, routine: TrapCode) {
+        match routine {
+            TrapCode::TrapGetc => todo!(),
+            TrapCode::TrapOut => todo!(),
+            TrapCode::TrapPuts => todo!(),
+            TrapCode::TrapIn => todo!(),
+            TrapCode::TrapPutsp => todo!(),
+            TrapCode::TrapHalt => self.halt(),
+        }
+    }
+
+    /// Reads the memory location of the address in R0 to write characters until
+    /// it finds the \0 char.
+    fn puts(&self) {
+        let mut address = self.registers[Register::R0 as usize];
+        let mut chars = self.memory[address as usize].to_le_bytes().map(|c| c as char);
+        while chars[0] != '\0' {
+            print!("{}", chars[0]);
+            if chars[1] == '\0' { break }
+            print!("{}", chars[1]);
+            address += 1; 
+            chars = self.memory[address as usize].to_le_bytes().map(|c| c as char);
+        }
+    }
+
+    fn getc(&mut self){
+        match std::io::stdin().bytes().next() {
+            Some(res) => {
+                match res {
+                    Ok(c) => self.registers[Register::R0 as usize] = c as u16,
+                    Err(_) => self.registers[Register::R0 as usize] = 0x05,
+                }
+            },
+            None => {
+                /* We return an end of line */
+                self.registers[Register::R0 as usize] = 0x05;
+            },
+        }
+    }
+
+    fn halt(&mut self) {
+        println!("HALT");
+        self.running = false;
     }
 }
 
@@ -632,25 +688,32 @@ mod tests {
             destination: Register::R5,
             offset: 3,
         };
-        let load_end = Instruction::Load {
-            destination: Register::R4,
-            offset: 1,
-        };
-        let jump = Instruction::Jump {
-            source: Register::R4,
+        let halt = Instruction::Trap {
+            routine: TrapCode::TrapHalt
         };
         vm.memory[0] = imm_add_1.encode();
         vm.memory[1] = imm_add_2.encode();
         vm.memory[2] = and.encode();
         vm.memory[3] = store.encode();
         vm.memory[4] = load.encode();
-        vm.memory[5] = load_end.encode();
-        vm.memory[6] = jump.encode();
-        vm.memory[7] = 0xFFFF;
+        vm.memory[5] = halt.encode();
         vm.execute();
 
         assert_eq!(vm.memory[8], 8);
         assert_eq!(vm.registers[Register::R5 as usize], 8);
-        assert_eq!(vm.registers[Register::R4 as usize], 0xFFFF);
+    }
+
+    /// You can run this single test to check the puts, output should
+    /// be eHll ooWlrd (little endian vs big endian)
+    #[test]
+    fn vm_puts(){
+        let mut vm = VirtualMachine::new();
+        vm.memory[0] = 0x4865; // He
+        vm.memory[1] = 0x6C6C; // ll
+        vm.memory[2] = 0x6F20; // o_
+        vm.memory[3] = 0x576F; // Wo
+        vm.memory[4] = 0x726C; // rl
+        vm.memory[5] = 0x0064; // \0d
+        vm.puts();
     }
 }
