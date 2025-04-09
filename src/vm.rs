@@ -619,5 +619,7 @@ mod tests {
         vm.execute();
 
         assert_eq!(vm.memory[8], 8);
+        assert_eq!(vm.registers[Register::R5 as usize], 8);
+        assert_eq!(vm.registers[Register::R4 as usize], 0xFFFF);
     }
 }
