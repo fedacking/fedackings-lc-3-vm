@@ -240,11 +240,11 @@ impl VirtualMachine {
     }
 
     /// Reads the memory location of the address in R0 to write characters until
-    /// it finds the \0 char. One character per word
+    /// it finds \0\0 at the address location. One character per word
     fn puts(&self) {
         let mut address = self.registers[Register::R0 as usize];
         let mut char = (self.memory[address as usize] & 0x00FF) as u8 as char;
-        while char != '\0' {
+        while self.memory[address as usize] != 0x0000 {
             print!("{}", char);
             address += 1;
             char = (self.memory[address as usize] & 0x00FF) as u8 as char;
@@ -781,5 +781,13 @@ mod tests {
         vm.memory[0x3000] = instruction.encode();
         vm.execute();
         assert!(!vm.running); // The actual test is if it returns, the vm should keep spinning in place
+    }
+
+    #[test]
+    fn vm_outc(){
+        let mut vm = VirtualMachine::new();
+        let instruction = Instruction::Trap { routine: TrapCode::TrapOut };
+        vm.registers[Register::R0 as usize] = 0x00FA;
+        vm.execute_instruction(instruction);
     }
 }
