@@ -4,6 +4,7 @@ use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register
 pub struct VirtualMachine {
     memory: [u16; u16::MAX as usize],
     registers: [u16; REGISTER_COUNTER],
+    running: bool,
 }
 
 impl VirtualMachine {
@@ -11,6 +12,7 @@ impl VirtualMachine {
         VirtualMachine {
             memory: [0; u16::MAX as usize],
             registers: [0; REGISTER_COUNTER],
+            running: false,
         }
     }
 
@@ -84,6 +86,20 @@ impl VirtualMachine {
                 offset,
             } => self.store_register(source_1, source_2, offset),
             Instruction::Noop => (),
+        }
+    }
+
+    pub fn execute(&mut self) {
+        self.running = true;
+        while self.running {
+            let pc = self.registers[Register::PC as usize] as usize;
+            if pc == 0xFFFF { // Virtual machines aren't supposed to stop but we do here
+                self.running = false;
+                break;
+            }
+            self.registers[Register::PC as usize] += 1;
+            let instruction = Instruction::decode(self.memory[pc]);
+            self.execute_instruction(instruction);
         }
     }
 
@@ -580,5 +596,26 @@ mod tests {
         vm.execute_instruction(instruction);
         let address = (40 + 0x40) as usize;
         assert_eq!(vm.memory[address], 6);
+    }
+
+    #[test]
+    fn vm_run_program() {
+        let mut vm = VirtualMachine::new();
+        let imm_add_1 = Instruction::Add { destination: Register::R1, source_1: Register::R0, source_2: Register::R0, mode: 1, value: 5 };
+        let imm_add_2 = Instruction::Add { destination: Register::R1, source_1: Register::R0, source_2: Register::R0, mode: 1, value: 5 };
+        let and = Instruction::And { destination: Register::R1, source_1: Register::R0, source_2: Register::R0, mode: 1, value: 5 };
+        let store = Instruction::Store { source: Register::R0, offset: 5 };
+        let load = Instruction::Load { destination: Register::R5, offset: 4 };
+        let load_end = Instruction::Load { destination: Register::R4, offset: 1 };
+        let jump = Instruction::Jump { source: Register::R4 };
+        vm.memory[0] = imm_add_1.encode();
+        vm.memory[1] = imm_add_2.encode();
+        vm.memory[2] = and.encode();
+        vm.memory[3] = store.encode();
+        vm.memory[4] = load.encode();
+        vm.memory[5] = load_end.encode();
+        vm.memory[6] = jump.encode();
+        vm.memory[7] = 0xFFFF;
+        vm.execute();
     }
 }
