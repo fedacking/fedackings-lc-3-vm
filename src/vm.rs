@@ -226,18 +226,31 @@ impl VirtualMachine {
 
     fn trap(&mut self, routine: TrapCode) {
         match routine {
-            TrapCode::TrapGetc => todo!(),
-            TrapCode::TrapOut => todo!(),
-            TrapCode::TrapPuts => todo!(),
-            TrapCode::TrapIn => todo!(),
-            TrapCode::TrapPutsp => todo!(),
+            TrapCode::TrapGetc => self.getc(),
+            TrapCode::TrapOut => self.putc(),
+            TrapCode::TrapPuts => self.puts(),
+            TrapCode::TrapIn => self.input(),
+            TrapCode::TrapPutsp => self.putsp(),
             TrapCode::TrapHalt => self.halt(),
         }
     }
 
     /// Reads the memory location of the address in R0 to write characters until
-    /// it finds the \0 char.
+    /// it finds the \0 char. One character per word
     fn puts(&self) {
+        let mut address = self.registers[Register::R0 as usize];
+        let mut char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+        while char != '\0' {
+            print!("{}", char);
+            address += 1;
+            char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+        }
+    }
+
+    /// Reads the memory location of the address in R0 to write characters until
+    /// it finds the \0 char.
+    /// Two characters per word
+    fn putsp(&self) {
         let mut address = self.registers[Register::R0 as usize];
         let mut chars = self.memory[address as usize].to_le_bytes().map(|c| c as char);
         while chars[0] != '\0' {
@@ -262,6 +275,17 @@ impl VirtualMachine {
                 self.registers[Register::R0 as usize] = 0x05;
             },
         }
+        self.update_flags(self.registers[Register::R0 as usize]);
+    }
+
+    fn putc(&self){
+        print!("{}", (self.registers[Register::R0 as usize] & 0xFF) as u8 as char)
+    }
+
+    fn input(&mut self){
+        println!("Enter a character:");
+        self.getc();
+        self.putc();
     }
 
     fn halt(&mut self) {
@@ -704,7 +728,7 @@ mod tests {
     }
 
     /// You can run this single test to check the puts, output should
-    /// be eHll ooWlrd (little endian vs big endian)
+    /// be 'el old' (little endian vs big endian)
     #[test]
     fn vm_puts(){
         let mut vm = VirtualMachine::new();
@@ -714,6 +738,22 @@ mod tests {
         vm.memory[3] = 0x576F; // Wo
         vm.memory[4] = 0x726C; // rl
         vm.memory[5] = 0x0064; // \0d
-        vm.puts();
+        let instruction = Instruction::Trap { routine: TrapCode::TrapPuts };
+        vm.execute_instruction(instruction);
+    }
+
+    /// You can run this single test to check the putsp, output should
+    /// be eHll ooWlrd (little endian vs big endian)
+    #[test]
+    fn vm_putsp(){
+        let mut vm = VirtualMachine::new();
+        vm.memory[0] = 0x4865; // He
+        vm.memory[1] = 0x6C6C; // ll
+        vm.memory[2] = 0x6F20; // o_
+        vm.memory[3] = 0x576F; // Wo
+        vm.memory[4] = 0x726C; // rl
+        vm.memory[5] = 0x0064; // \0d
+        let instruction = Instruction::Trap { routine: TrapCode::TrapPutsp };
+        vm.execute_instruction(instruction);
     }
 }
