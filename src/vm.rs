@@ -94,7 +94,8 @@ impl VirtualMachine {
         while self.running {
             let pc = self.registers[Register::PC as usize] as usize;
             if pc == 0xFFFF {
-                // Virtual machines aren't supposed to stop but we do here
+                // We usually halt on a TRAP_HALT instruction, but implementation
+                // of trap instructions is TODO
                 self.running = false;
                 break;
             }
