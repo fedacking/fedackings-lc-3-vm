@@ -230,12 +230,12 @@ impl VirtualMachine {
 
     fn trap(&mut self, routine: TrapCode) {
         match routine {
-            TrapCode::TrapGetc => self.getc(),
-            TrapCode::TrapOut => self.putc(),
-            TrapCode::TrapPuts => self.puts(),
-            TrapCode::TrapIn => self.input(),
-            TrapCode::TrapPutsp => self.putsp(),
-            TrapCode::TrapHalt => self.halt(),
+            TrapCode::Getc => self.getc(),
+            TrapCode::Out => self.putc(),
+            TrapCode::Puts => self.puts(),
+            TrapCode::In => self.input(),
+            TrapCode::Putsp => self.putsp(),
+            TrapCode::Halt => self.halt(),
         }
     }
 
@@ -724,7 +724,7 @@ mod tests {
             offset: 3,
         };
         let halt = Instruction::Trap {
-            routine: TrapCode::TrapHalt,
+            routine: TrapCode::Halt,
         };
         vm.memory[0] = imm_add_1.encode();
         vm.memory[1] = imm_add_2.encode();
@@ -750,7 +750,7 @@ mod tests {
         vm.memory[4] = 0x726C; // rl
         vm.memory[5] = 0x0064; // \0d
         let instruction = Instruction::Trap {
-            routine: TrapCode::TrapPuts,
+            routine: TrapCode::Puts,
         };
         vm.execute_instruction(instruction);
     }
@@ -767,7 +767,7 @@ mod tests {
         vm.memory[4] = 0x726C; // rl
         vm.memory[5] = 0x0064; // \0d
         let instruction = Instruction::Trap {
-            routine: TrapCode::TrapPutsp,
+            routine: TrapCode::Putsp,
         };
         vm.execute_instruction(instruction);
     }
@@ -776,7 +776,7 @@ mod tests {
     fn vm_halt() {
         let mut vm = VirtualMachine::from_program([0; u16::MAX as usize]);
         let instruction = Instruction::Trap {
-            routine: TrapCode::TrapHalt,
+            routine: TrapCode::Halt,
         };
         vm.memory[0x3000] = instruction.encode();
         vm.execute();
@@ -788,7 +788,7 @@ mod tests {
     fn vm_outc() {
         let mut vm = VirtualMachine::new();
         let instruction = Instruction::Trap {
-            routine: TrapCode::TrapOut,
+            routine: TrapCode::Out,
         };
         vm.registers[Register::R0 as usize] = 0x00FA;
         vm.execute_instruction(instruction);

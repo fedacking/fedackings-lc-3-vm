@@ -7,11 +7,11 @@ mod vm;
 fn main() {
     let mut bloc = [0; u16::MAX as usize];
     bloc[0x3000] = Instruction::Trap {
-        routine: TrapCode::TrapIn,
+        routine: TrapCode::In,
     }
     .encode();
     bloc[0x3000 + 1] = Instruction::Trap {
-        routine: TrapCode::TrapHalt,
+        routine: TrapCode::Halt,
     }
     .encode();
     let mut vm = VirtualMachine::from_program(bloc);

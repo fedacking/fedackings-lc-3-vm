@@ -17,23 +17,23 @@ fn from_bits_signed(value: u16, size: u16, offset: u16) -> u16 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TrapCode {
-    TrapGetc = 0x20,  /* get character from keyboard, not echoed onto the terminal */
-    TrapOut = 0x21,   /* output a character */
-    TrapPuts = 0x22,  /* output a word string */
-    TrapIn = 0x23,    /* get character from keyboard, echoed onto the terminal */
-    TrapPutsp = 0x24, /* output a byte string */
-    TrapHalt = 0x25,  /* halt the program */
+    Getc = 0x20,  /* get character from keyboard, not echoed onto the terminal */
+    Out = 0x21,   /* output a character */
+    Puts = 0x22,  /* output a word string */
+    In = 0x23,    /* get character from keyboard, echoed onto the terminal */
+    Putsp = 0x24, /* output a byte string */
+    Halt = 0x25,  /* halt the program */
 }
 
 impl TrapCode {
     fn from_bits(value: u16) -> Self {
         match from_bits(value, 8, 0) {
-            0x20 => TrapCode::TrapGetc,
-            0x21 => TrapCode::TrapOut,
-            0x22 => TrapCode::TrapPuts,
-            0x23 => TrapCode::TrapIn,
-            0x24 => TrapCode::TrapPutsp,
-            0x25 => TrapCode::TrapHalt,
+            0x20 => TrapCode::Getc,
+            0x21 => TrapCode::Out,
+            0x22 => TrapCode::Puts,
+            0x23 => TrapCode::In,
+            0x24 => TrapCode::Putsp,
+            0x25 => TrapCode::Halt,
             _ => todo!(),
         }
     }
