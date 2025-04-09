@@ -5,15 +5,6 @@ mod instructions;
 mod vm;
 
 fn main() {
-    let mut bloc = [0; u16::MAX as usize];
-    bloc[0x3000] = Instruction::Trap {
-        routine: TrapCode::In,
-    }
-    .encode();
-    bloc[0x3000 + 1] = Instruction::Trap {
-        routine: TrapCode::Halt,
-    }
-    .encode();
-    let mut vm = VirtualMachine::from_program(bloc);
+    let mut vm = VirtualMachine::from_image("binaries/2048.obj".to_string()).unwrap();
     vm.execute();
 }
