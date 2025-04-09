@@ -90,23 +90,6 @@ pub enum ConditionFlag {
     Zero = 1 << 1,
     Negative = 1 << 2,
 }
-impl ConditionFlag {
-    fn from_u16(value: u16) -> Self {
-        match value {
-            1 => Self::Positive,
-            2 => Self::Zero,
-            4 => Self::Negative,
-            _ => {
-                /* consider blowing up */
-                todo!()
-            }
-        }
-    }
-
-    fn from_bits(value: u16, offset: u16) -> Self {
-        Self::from_u16(from_bits(value, 3, offset))
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Register {
@@ -187,7 +170,7 @@ pub enum Instruction {
         offset: u16,
     },
     Branch {
-        flag: ConditionFlag,
+        flag: u16,
         offset: u16,
     },
     Jump {
@@ -329,7 +312,7 @@ impl Instruction {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
             OperationCode::Branch => Instruction::Branch {
-                flag: ConditionFlag::from_bits(repr, 9),
+                flag: from_bits(repr, 9, 0),
                 offset: from_bits_signed(repr, 9, 0),
             },
             OperationCode::Add => Instruction::Add {
