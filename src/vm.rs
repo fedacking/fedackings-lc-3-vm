@@ -780,13 +780,16 @@ mod tests {
         };
         vm.memory[0x3000] = instruction.encode();
         vm.execute();
-        assert!(!vm.running); // The actual test is if it returns, the vm should keep spinning in place
+        assert!(!vm.running);
+        // The actual test is if it returns, the vm should keep spinning in place without a halt
     }
 
     #[test]
-    fn vm_outc(){
+    fn vm_outc() {
         let mut vm = VirtualMachine::new();
-        let instruction = Instruction::Trap { routine: TrapCode::TrapOut };
+        let instruction = Instruction::Trap {
+            routine: TrapCode::TrapOut,
+        };
         vm.registers[Register::R0 as usize] = 0x00FA;
         vm.execute_instruction(instruction);
     }
