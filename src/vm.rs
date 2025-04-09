@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use crate::instructions::{ConditionFlag, Instruction, Register, TrapCode, REGISTER_COUNTER};
+use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -27,78 +27,82 @@ impl VirtualMachine {
     pub fn from_program(program: [u16; u16::MAX as usize]) -> Self {
         let mut registers = [0; REGISTER_COUNTER];
         registers[Register::PC as usize] = 0x3000;
-        VirtualMachine { memory: program, registers, running: false }
+        VirtualMachine {
+            memory: program,
+            registers,
+            running: false,
+        }
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
         match instruction {
             Instruction::Add {
-                        destination,
-                        source_1,
-                        source_2,
-                        mode,
-                        value,
-                    } => {
-                        if mode == 0 {
-                            self.add(destination, source_1, source_2);
-                        } else {
-                            self.add_immediate(destination, source_1, value);
-                        }
-                    }
+                destination,
+                source_1,
+                source_2,
+                mode,
+                value,
+            } => {
+                if mode == 0 {
+                    self.add(destination, source_1, source_2);
+                } else {
+                    self.add_immediate(destination, source_1, value);
+                }
+            }
             Instruction::And {
-                        destination,
-                        source_1,
-                        source_2,
-                        mode,
-                        value,
-                    } => {
-                        if mode == 0 {
-                            self.and(destination, source_1, source_2);
-                        } else {
-                            self.and_immediate(destination, source_1, value);
-                        }
-                    }
+                destination,
+                source_1,
+                source_2,
+                mode,
+                value,
+            } => {
+                if mode == 0 {
+                    self.and(destination, source_1, source_2);
+                } else {
+                    self.and_immediate(destination, source_1, value);
+                }
+            }
             Instruction::Not {
-                        destination,
-                        source,
-                    } => self.not(destination, source),
+                destination,
+                source,
+            } => self.not(destination, source),
             Instruction::Load {
-                        destination,
-                        offset,
-                    } => self.load(destination, offset),
+                destination,
+                offset,
+            } => self.load(destination, offset),
             Instruction::LoadRegister {
-                        destination,
-                        source,
-                        offset,
-                    } => self.load_register(destination, source, offset),
+                destination,
+                source,
+                offset,
+            } => self.load_register(destination, source, offset),
             Instruction::LoadIndirect {
-                        destination,
-                        offset,
-                    } => self.load_indirect(destination, offset),
+                destination,
+                offset,
+            } => self.load_indirect(destination, offset),
             Instruction::LoadEffectiveAddress {
-                        destination,
-                        offset,
-                    } => self.load_effective_address(destination, offset),
+                destination,
+                offset,
+            } => self.load_effective_address(destination, offset),
             Instruction::Branch { flag, offset } => self.branch(flag, offset),
             Instruction::Jump { source } => self.jump(source),
             Instruction::JumpRegister {
-                        source,
-                        mode,
-                        offset,
-                    } => {
-                        if mode == 1 {
-                            self.jump_immediate(offset);
-                        } else {
-                            self.jump_register(source);
-                        }
-                    }
+                source,
+                mode,
+                offset,
+            } => {
+                if mode == 1 {
+                    self.jump_immediate(offset);
+                } else {
+                    self.jump_register(source);
+                }
+            }
             Instruction::Store { source, offset } => self.store(source, offset),
             Instruction::StoreIndirect { source, offset } => self.store_indirect(source, offset),
             Instruction::StoreRegister {
-                        source_1,
-                        source_2,
-                        offset,
-                    } => self.store_register(source_1, source_2, offset),
+                source_1,
+                source_2,
+                offset,
+            } => self.store_register(source_1, source_2, offset),
             Instruction::Trap { routine } => self.trap(routine),
             Instruction::Noop => (),
         }
@@ -252,37 +256,44 @@ impl VirtualMachine {
     /// Two characters per word
     fn putsp(&self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut chars = self.memory[address as usize].to_le_bytes().map(|c| c as char);
+        let mut chars = self.memory[address as usize]
+            .to_le_bytes()
+            .map(|c| c as char);
         while chars[0] != '\0' {
             print!("{}", chars[0]);
-            if chars[1] == '\0' { break }
+            if chars[1] == '\0' {
+                break;
+            }
             print!("{}", chars[1]);
-            address += 1; 
-            chars = self.memory[address as usize].to_le_bytes().map(|c| c as char);
+            address += 1;
+            chars = self.memory[address as usize]
+                .to_le_bytes()
+                .map(|c| c as char);
         }
     }
 
-    fn getc(&mut self){
+    fn getc(&mut self) {
         match std::io::stdin().bytes().next() {
-            Some(res) => {
-                match res {
-                    Ok(c) => self.registers[Register::R0 as usize] = c as u16,
-                    Err(_) => self.registers[Register::R0 as usize] = 0x05,
-                }
+            Some(res) => match res {
+                Ok(c) => self.registers[Register::R0 as usize] = c as u16,
+                Err(_) => self.registers[Register::R0 as usize] = 0x05,
             },
             None => {
                 /* We return an end of line */
                 self.registers[Register::R0 as usize] = 0x05;
-            },
+            }
         }
         self.update_flags(self.registers[Register::R0 as usize]);
     }
 
-    fn putc(&self){
-        print!("{}", (self.registers[Register::R0 as usize] & 0xFF) as u8 as char)
+    fn putc(&self) {
+        print!(
+            "{}",
+            (self.registers[Register::R0 as usize] & 0xFF) as u8 as char
+        )
     }
 
-    fn input(&mut self){
+    fn input(&mut self) {
         println!("Enter a character:");
         self.getc();
         self.putc();
@@ -713,7 +724,7 @@ mod tests {
             offset: 3,
         };
         let halt = Instruction::Trap {
-            routine: TrapCode::TrapHalt
+            routine: TrapCode::TrapHalt,
         };
         vm.memory[0] = imm_add_1.encode();
         vm.memory[1] = imm_add_2.encode();
@@ -730,7 +741,7 @@ mod tests {
     /// You can run this single test to check the puts, output should
     /// be 'el old' (little endian vs big endian)
     #[test]
-    fn vm_puts(){
+    fn vm_puts() {
         let mut vm = VirtualMachine::new();
         vm.memory[0] = 0x4865; // He
         vm.memory[1] = 0x6C6C; // ll
@@ -738,14 +749,16 @@ mod tests {
         vm.memory[3] = 0x576F; // Wo
         vm.memory[4] = 0x726C; // rl
         vm.memory[5] = 0x0064; // \0d
-        let instruction = Instruction::Trap { routine: TrapCode::TrapPuts };
+        let instruction = Instruction::Trap {
+            routine: TrapCode::TrapPuts,
+        };
         vm.execute_instruction(instruction);
     }
 
     /// You can run this single test to check the putsp, output should
     /// be eHll ooWlrd (little endian vs big endian)
     #[test]
-    fn vm_putsp(){
+    fn vm_putsp() {
         let mut vm = VirtualMachine::new();
         vm.memory[0] = 0x4865; // He
         vm.memory[1] = 0x6C6C; // ll
@@ -753,7 +766,20 @@ mod tests {
         vm.memory[3] = 0x576F; // Wo
         vm.memory[4] = 0x726C; // rl
         vm.memory[5] = 0x0064; // \0d
-        let instruction = Instruction::Trap { routine: TrapCode::TrapPutsp };
+        let instruction = Instruction::Trap {
+            routine: TrapCode::TrapPutsp,
+        };
         vm.execute_instruction(instruction);
+    }
+
+    #[test]
+    fn vm_halt() {
+        let mut vm = VirtualMachine::from_program([0; u16::MAX as usize]);
+        let instruction = Instruction::Trap {
+            routine: TrapCode::TrapHalt,
+        };
+        vm.memory[0x3000] = instruction.encode();
+        vm.execute();
+        assert!(!vm.running); // The actual test is if it returns, the vm should keep spinning in place
     }
 }
