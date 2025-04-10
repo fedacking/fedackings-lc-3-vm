@@ -52,7 +52,7 @@ impl VirtualMachine {
         let mut i = 2;
 
         while i < (data - 1) {
-            vm.memory[address] = ((buf[i] as u16) << 8) + buf[i+1] as u16;
+            vm.memory[address] = ((buf[i] as u16) << 8) + buf[i + 1] as u16;
             address += 1;
             i += 2;
         }
