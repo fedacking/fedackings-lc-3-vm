@@ -9,6 +9,12 @@ fn main() {
         Some(path) => path,
         None => "binaries/2048.obj".to_string(),
     };
-    let mut vm = VirtualMachine::from_image(path).unwrap();
-    vm.execute();
+    match VirtualMachine::from_image(path) {
+        Ok(mut vm) => {
+            vm.execute();
+        }
+        Err(err) => {
+            dbg!(err);
+        }
+    }
 }
