@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{fs::File, io::Read};
 
 use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode};
 
@@ -32,6 +32,34 @@ impl VirtualMachine {
             registers,
             running: false,
         }
+    }
+
+    /// Starts a visual machines with the program that we read from file
+    pub fn from_image(path: String) -> Result<Self, std::io::Error> {
+        let mut file = File::open(path)?;
+        let mut buf: Vec<u8> = vec![];
+        let data = file.read_to_end(&mut buf)?;
+
+        if data < 2 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "File too small!",
+            ));
+        }
+
+        let mut vm = Self::new();
+        let mut address = (((buf[0] as u16) << 8) + buf[1] as u16) as usize;
+        let mut i = 2;
+
+        while i < (data - 1) {
+            vm.memory[address] = ((buf[i] as u16) << 8) + buf[i + 1] as u16;
+            address += 1;
+            i += 2;
+        }
+
+        vm.registers[Register::PC as usize] = 0x3000;
+
+        Ok(vm)
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
@@ -804,5 +832,13 @@ mod tests {
         };
         vm.registers[Register::R0 as usize] = 0x00FA;
         vm.execute_instruction(instruction);
+    }
+
+    #[test]
+    fn fm_from_test_image() {
+        let mut vm = VirtualMachine::from_image("binaries/test.obj".to_string()).unwrap();
+        vm.execute();
+
+        assert_eq!(vm.registers[Register::R0 as usize], 0x000A);
     }
 }

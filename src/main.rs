@@ -5,15 +5,16 @@ mod instructions;
 mod vm;
 
 fn main() {
-    let mut bloc = [0; u16::MAX as usize];
-    bloc[0x3000] = Instruction::Trap {
-        routine: TrapCode::In,
+    let path = match std::env::args().nth(1) {
+        Some(path) => path,
+        None => "binaries/2048.obj".to_string(),
+    };
+    match VirtualMachine::from_image(path) {
+        Ok(mut vm) => {
+            vm.execute();
+        }
+        Err(err) => {
+            dbg!(err);
+        }
     }
-    .encode();
-    bloc[0x3000 + 1] = Instruction::Trap {
-        routine: TrapCode::Halt,
-    }
-    .encode();
-    let mut vm = VirtualMachine::from_program(bloc);
-    vm.execute();
 }
