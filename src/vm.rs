@@ -1,4 +1,7 @@
-use std::{fs::File, io::{self, Read, Write}};
+use std::{
+    fs::File,
+    io::{self, Read, Write},
+};
 
 use crate::{
     instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
