@@ -28,3 +28,5 @@ make test
 ```
 
 ## Techincal details
+
+The VM runs entirely in memory, and doesn't implement any persistence mechanism.
