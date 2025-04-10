@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
-    terminal::{self, KeyboardAddresses, restore, setup},
+    terminal::KeyboardAddresses,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -146,14 +146,12 @@ impl VirtualMachine {
     /// Else it continues running over memory.
     pub fn execute(&mut self) {
         self.running = true;
-        let terminal = setup().unwrap(); // TODO: error handling
         while self.running {
             let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
             let instruction = Instruction::decode(self.mem_read(pc));
             self.execute_instruction(instruction);
         }
-        restore(&terminal).unwrap();
     }
 
     fn update_flags(&mut self, value: u16) {

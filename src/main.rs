@@ -1,4 +1,5 @@
 use instructions::{Instruction, TrapCode};
+use terminal::{restore, setup};
 use vm::VirtualMachine;
 
 mod instructions;
@@ -12,7 +13,9 @@ fn main() {
     };
     match VirtualMachine::from_image(path) {
         Ok(mut vm) => {
+            let terminal = setup().unwrap(); // TODO: error handling
             vm.execute();
+            restore(&terminal).unwrap();
         }
         Err(err) => {
             dbg!(err);
