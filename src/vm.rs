@@ -141,9 +141,9 @@ impl VirtualMachine {
     pub fn execute(&mut self) {
         self.running = true;
         while self.running {
-            let pc = self.registers[Register::PC as usize] as usize;
+            let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
-            let instruction = Instruction::decode(self.memory[pc]);
+            let instruction = Instruction::decode(self.mem_read(pc));
             self.execute_instruction(instruction);
         }
     }
@@ -157,6 +157,10 @@ impl VirtualMachine {
             std::cmp::Ordering::Equal => ConditionFlag::Zero as u16,
             std::cmp::Ordering::Greater => ConditionFlag::Positive as u16,
         }
+    }
+
+    fn mem_read(&self, address: u16) -> u16 {
+        self.memory[address as usize]
     }
 
     fn add(&mut self, destination: Register, source_1: Register, source_2: Register) {
@@ -192,22 +196,22 @@ impl VirtualMachine {
 
     fn load(&mut self, destination: Register, offset: u16) {
         let address = self.registers[Register::PC as usize].wrapping_add(offset);
-        let value = self.memory[address as usize];
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
 
     fn load_register(&mut self, destination: Register, source: Register, offset: u16) {
         let address = self.registers[source as usize].wrapping_add(offset);
-        let value = self.memory[address as usize];
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
 
     fn load_indirect(&mut self, destination: Register, offset: u16) {
         let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
-        let address = self.memory[meta_address as usize];
-        let value = self.memory[address as usize];
+        let address = self.mem_read(meta_address);
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -246,9 +250,9 @@ impl VirtualMachine {
     }
 
     fn store_indirect(&mut self, source: Register, offset: u16) {
-        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset) as usize;
-        let address = self.memory[meta_address] as usize;
-        self.memory[address] = self.registers[source as usize];
+        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
+        let address = self.mem_read(meta_address);
+        self.memory[address as usize] = self.registers[source as usize];
     }
 
     fn store_register(&mut self, source_1: Register, source_2: Register, offset: u16) {
@@ -271,11 +275,11 @@ impl VirtualMachine {
     /// it finds \0\0 at the address location. One character per word
     fn puts(&self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut char = (self.memory[address as usize] & 0x00FF) as u8 as char;
-        while self.memory[address as usize] != 0x0000 {
+        let mut char = (self.mem_read(address) & 0x00FF) as u8 as char;
+        while self.mem_read(address) != 0x0000 {
             print!("{}", char);
             address += 1;
-            char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+            char = (self.mem_read(address) & 0x00FF) as u8 as char;
         }
     }
 
@@ -284,7 +288,7 @@ impl VirtualMachine {
     /// Two characters per word
     fn putsp(&self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut chars = self.memory[address as usize]
+        let mut chars = self.mem_read(address)
             .to_le_bytes()
             .map(|c| c as char);
         while chars[0] != '\0' {
@@ -294,7 +298,7 @@ impl VirtualMachine {
             }
             print!("{}", chars[1]);
             address += 1;
-            chars = self.memory[address as usize]
+            chars = self.mem_read(address)
                 .to_le_bytes()
                 .map(|c| c as char);
         }
