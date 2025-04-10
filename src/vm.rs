@@ -190,8 +190,8 @@ impl VirtualMachine {
         self.update_flags(value);
     }
 
-    fn branch(&mut self, flag: ConditionFlag, offset: u16) {
-        if flag as u16 == self.registers[Register::Cond as usize] {
+    fn branch(&mut self, flag: u16, offset: u16) {
+        if (flag & self.registers[Register::Cond as usize]) != 0 {
             self.registers[Register::PC as usize] =
                 self.registers[Register::PC as usize].wrapping_add(offset);
         }
@@ -587,7 +587,7 @@ mod tests {
     #[test]
     fn vm_branch() {
         let instruction = Instruction::Branch {
-            flag: ConditionFlag::Negative,
+            flag: ConditionFlag::Negative as u16,
             offset: 16,
         };
         let mut vm = VirtualMachine::new();
@@ -597,9 +597,21 @@ mod tests {
     }
 
     #[test]
+    fn vm_branch_multiple() {
+        let instruction = Instruction::Branch {
+            flag: ConditionFlag::Negative as u16 | ConditionFlag::Positive as u16,
+            offset: 16,
+        };
+        let mut vm = VirtualMachine::new();
+        vm.registers[Register::Cond as usize] = ConditionFlag::Positive as u16;
+        vm.execute_instruction(instruction);
+        assert_eq!(vm.registers[Register::PC as usize], 16);
+    }
+
+    #[test]
     fn vm_branch_fail() {
         let instruction = Instruction::Branch {
-            flag: ConditionFlag::Positive,
+            flag: 0,
             offset: 16,
         };
         let mut vm = VirtualMachine::new();
