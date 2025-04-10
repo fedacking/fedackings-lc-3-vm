@@ -833,4 +833,12 @@ mod tests {
         vm.registers[Register::R0 as usize] = 0x00FA;
         vm.execute_instruction(instruction);
     }
+
+    #[test]
+    fn fm_from_test_image() {
+        let mut vm = VirtualMachine::from_image("binaries/test.obj".to_string()).unwrap();
+        vm.execute();
+
+        assert_eq!(vm.registers[Register::R0 as usize], 0x000A);
+    }
 }
