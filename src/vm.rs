@@ -172,9 +172,9 @@ impl VirtualMachine {
 
     fn mem_read(&mut self, address: u16) -> u16 {
         if address == KeyboardAddresses::Status as u16 {
-            // We read the char from the bytes array, if it's empty or
-            // there's an error other than timed out, we send EOF to the program
-            // if it's timed out we assume no one was using the keyboards
+            // We read the char from the bytes array, if there's an error other than timed out
+            // we send EOF to the program. if it's timed out or we recieve nothing
+            // we use 0xFFFF (which can never be the result from a u8) to set the keyboard status to 0
             let read_char: u16 = match std::io::stdin()
                 .with_timeout(Duration::from_millis(KEYBOARD_TIMEOUT))
                 .bytes()
@@ -183,16 +183,18 @@ impl VirtualMachine {
                 Some(res) => match res {
                     Ok(c) => c as u16,
                     Err(err) => match err.kind() {
-                        io::ErrorKind::TimedOut => {
-                            return self.memory[address as usize];
-                        }
+                        io::ErrorKind::TimedOut => 0xFFFF,
                         _ => 0x05,
                     },
                 },
-                None => 0x05,
+                None => 0xFFFF,
             };
-            self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
-            self.memory[KeyboardAddresses::Data as usize] = read_char;
+            if read_char != 0xFFFF {
+                self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
+                self.memory[KeyboardAddresses::Data as usize] = read_char;
+            } else {
+                self.memory[KeyboardAddresses::Status as usize] = 0;
+            }
         }
         self.memory[address as usize]
     }
