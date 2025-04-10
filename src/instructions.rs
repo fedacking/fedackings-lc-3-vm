@@ -3,7 +3,7 @@ pub enum VMError {
     TrapCodeDecode { repr: u16 },
     RegisterDecode { repr: u16 },
     IO { err: std::io::Error },
-    ReservedInstruction { repr: u16 }
+    ReservedInstruction { repr: u16 },
 }
 
 /// Utility function that allows us to quickly just grab the specified bits
@@ -42,9 +42,7 @@ impl TrapCode {
             0x23 => Ok(TrapCode::In),
             0x24 => Ok(TrapCode::Putsp),
             0x25 => Ok(TrapCode::Halt),
-            repr => {
-                Err(VMError::TrapCodeDecode { repr })
-            },
+            repr => Err(VMError::TrapCodeDecode { repr }),
         }
     }
 }

@@ -9,7 +9,7 @@ use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 const KEYBOARD_TIMEOUT: u64 = 10;
 
 use crate::{
-    instructions::{ConditionFlag, Instruction, Register, TrapCode, VMError, REGISTER_COUNTER},
+    instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode, VMError},
     terminal::KeyboardAddresses,
 };
 
@@ -150,13 +150,14 @@ impl VirtualMachine {
 
     /// Starts the executions of the program. Stops on a TRAP_HALT instruction
     /// Else it continues running over memory.
-    pub fn execute(&mut self) -> Result<(), VMError>{
+    pub fn execute(&mut self) -> Result<(), VMError> {
         self.running = true;
         while self.running {
             let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
             let instruction = Instruction::decode(self.mem_read(pc))?;
-            self.execute_instruction(instruction).map_err(|err| VMError::IO { err })?;
+            self.execute_instruction(instruction)
+                .map_err(|err| VMError::IO { err })?;
         }
         Ok(())
     }
