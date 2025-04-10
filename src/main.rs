@@ -1,9 +1,19 @@
+use instructions::{Instruction, TrapCode};
 use vm::VirtualMachine;
 
 mod instructions;
 mod vm;
 
 fn main() {
-    let main_vm = VirtualMachine::new();
-    println!("Hello, world!");
+    let mut bloc = [0; u16::MAX as usize];
+    bloc[0x3000] = Instruction::Trap {
+        routine: TrapCode::In,
+    }
+    .encode();
+    bloc[0x3000 + 1] = Instruction::Trap {
+        routine: TrapCode::Halt,
+    }
+    .encode();
+    let mut vm = VirtualMachine::from_program(bloc);
+    vm.execute();
 }

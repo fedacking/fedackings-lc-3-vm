@@ -16,6 +16,30 @@ fn from_bits_signed(value: u16, size: u16, offset: u16) -> u16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TrapCode {
+    Getc = 0x20,  /* get character from keyboard, not echoed onto the terminal */
+    Out = 0x21,   /* output a character */
+    Puts = 0x22,  /* output a word string */
+    In = 0x23,    /* get character from keyboard, echoed onto the terminal */
+    Putsp = 0x24, /* output a byte string */
+    Halt = 0x25,  /* halt the program */
+}
+
+impl TrapCode {
+    fn from_bits(value: u16) -> Self {
+        match from_bits(value, 8, 0) {
+            0x20 => TrapCode::Getc,
+            0x21 => TrapCode::Out,
+            0x22 => TrapCode::Puts,
+            0x23 => TrapCode::In,
+            0x24 => TrapCode::Putsp,
+            0x25 => TrapCode::Halt,
+            _ => todo!(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum OperationCode {
     Branch,
     Add,
@@ -188,6 +212,9 @@ pub enum Instruction {
         source_2: Register,
         offset: u16,
     },
+    Trap {
+        routine: TrapCode,
+    },
     Noop,
 }
 
@@ -291,6 +318,9 @@ impl Instruction {
                     + ((source_2 as u16) << 6)
                     + (offset & 0x3F)
             }
+            Instruction::Trap { routine } => {
+                ((OperationCode::ExecuteTrap as u16) << 12) + (routine as u16)
+            }
             Instruction::Noop => 0,
         }
     }
@@ -360,7 +390,9 @@ impl Instruction {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
             },
-            OperationCode::ExecuteTrap => todo!(),
+            OperationCode::ExecuteTrap => Instruction::Trap {
+                routine: TrapCode::from_bits(repr),
+            },
         }
     }
 }

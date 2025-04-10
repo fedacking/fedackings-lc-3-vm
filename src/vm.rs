@@ -1,4 +1,6 @@
-use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register};
+use std::io::Read;
+
+use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -8,10 +10,26 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new() -> Self {
+    /// starts the visual machine with everything with 0s
+    /// We use it for internal testing
+    /// To launch a proper fm use from_program
+    fn new() -> Self {
         VirtualMachine {
             memory: [0; u16::MAX as usize],
             registers: [0; REGISTER_COUNTER],
+            running: false,
+        }
+    }
+
+    /// Starts a visual machines with the loaded program. All registers
+    /// are started with 0s, except the Program counter, which starts at
+    /// 0x3000. You can start it's execution with execute
+    pub fn from_program(program: [u16; u16::MAX as usize]) -> Self {
+        let mut registers = [0; REGISTER_COUNTER];
+        registers[Register::PC as usize] = 0x3000;
+        VirtualMachine {
+            memory: program,
+            registers,
             running: false,
         }
     }
@@ -85,20 +103,17 @@ impl VirtualMachine {
                 source_2,
                 offset,
             } => self.store_register(source_1, source_2, offset),
+            Instruction::Trap { routine } => self.trap(routine),
             Instruction::Noop => (),
         }
     }
 
+    /// Starts the executions of the program. Stops on a TRAP_HALT instruction
+    /// Else it continues running over memory.
     pub fn execute(&mut self) {
         self.running = true;
         while self.running {
             let pc = self.registers[Register::PC as usize] as usize;
-            if pc == 0xFFFF {
-                // We usually halt on a TRAP_HALT instruction, but implementation
-                // of trap instructions is TODO
-                self.running = false;
-                break;
-            }
             self.registers[Register::PC as usize] += 1;
             let instruction = Instruction::decode(self.memory[pc]);
             self.execute_instruction(instruction);
@@ -211,6 +226,82 @@ impl VirtualMachine {
     fn store_register(&mut self, source_1: Register, source_2: Register, offset: u16) {
         let address: usize = offset.wrapping_add(self.registers[source_2 as usize]) as usize;
         self.memory[address] = self.registers[source_1 as usize];
+    }
+
+    fn trap(&mut self, routine: TrapCode) {
+        match routine {
+            TrapCode::Getc => self.getc(),
+            TrapCode::Out => self.putc(),
+            TrapCode::Puts => self.puts(),
+            TrapCode::In => self.input(),
+            TrapCode::Putsp => self.putsp(),
+            TrapCode::Halt => self.halt(),
+        }
+    }
+
+    /// Reads the memory location of the address in R0 to write characters until
+    /// it finds \0\0 at the address location. One character per word
+    fn puts(&self) {
+        let mut address = self.registers[Register::R0 as usize];
+        let mut char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+        while self.memory[address as usize] != 0x0000 {
+            print!("{}", char);
+            address += 1;
+            char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+        }
+    }
+
+    /// Reads the memory location of the address in R0 to write characters until
+    /// it finds the \0 char.
+    /// Two characters per word
+    fn putsp(&self) {
+        let mut address = self.registers[Register::R0 as usize];
+        let mut chars = self.memory[address as usize]
+            .to_le_bytes()
+            .map(|c| c as char);
+        while chars[0] != '\0' {
+            print!("{}", chars[0]);
+            if chars[1] == '\0' {
+                break;
+            }
+            print!("{}", chars[1]);
+            address += 1;
+            chars = self.memory[address as usize]
+                .to_le_bytes()
+                .map(|c| c as char);
+        }
+    }
+
+    fn getc(&mut self) {
+        match std::io::stdin().bytes().next() {
+            Some(res) => match res {
+                Ok(c) => self.registers[Register::R0 as usize] = c as u16,
+                Err(_) => self.registers[Register::R0 as usize] = 0x05,
+            },
+            None => {
+                /* We return an end of line */
+                self.registers[Register::R0 as usize] = 0x05;
+            }
+        }
+        self.update_flags(self.registers[Register::R0 as usize]);
+    }
+
+    fn putc(&self) {
+        print!(
+            "{}",
+            (self.registers[Register::R0 as usize] & 0xFF) as u8 as char
+        )
+    }
+
+    fn input(&mut self) {
+        println!("Enter a character:");
+        self.getc();
+        self.putc();
+    }
+
+    fn halt(&mut self) {
+        println!("HALT");
+        self.running = false;
     }
 }
 
@@ -632,25 +723,74 @@ mod tests {
             destination: Register::R5,
             offset: 3,
         };
-        let load_end = Instruction::Load {
-            destination: Register::R4,
-            offset: 1,
-        };
-        let jump = Instruction::Jump {
-            source: Register::R4,
+        let halt = Instruction::Trap {
+            routine: TrapCode::Halt,
         };
         vm.memory[0] = imm_add_1.encode();
         vm.memory[1] = imm_add_2.encode();
         vm.memory[2] = and.encode();
         vm.memory[3] = store.encode();
         vm.memory[4] = load.encode();
-        vm.memory[5] = load_end.encode();
-        vm.memory[6] = jump.encode();
-        vm.memory[7] = 0xFFFF;
+        vm.memory[5] = halt.encode();
         vm.execute();
 
         assert_eq!(vm.memory[8], 8);
         assert_eq!(vm.registers[Register::R5 as usize], 8);
-        assert_eq!(vm.registers[Register::R4 as usize], 0xFFFF);
+    }
+
+    /// You can run this single test to check the puts, output should
+    /// be 'el old' (little endian vs big endian)
+    #[test]
+    fn vm_puts() {
+        let mut vm = VirtualMachine::new();
+        vm.memory[0] = 0x4865; // He
+        vm.memory[1] = 0x6C6C; // ll
+        vm.memory[2] = 0x6F20; // o_
+        vm.memory[3] = 0x576F; // Wo
+        vm.memory[4] = 0x726C; // rl
+        vm.memory[5] = 0x0064; // \0d
+        let instruction = Instruction::Trap {
+            routine: TrapCode::Puts,
+        };
+        vm.execute_instruction(instruction);
+    }
+
+    /// You can run this single test to check the putsp, output should
+    /// be eHll ooWlrd (little endian vs big endian)
+    #[test]
+    fn vm_putsp() {
+        let mut vm = VirtualMachine::new();
+        vm.memory[0] = 0x4865; // He
+        vm.memory[1] = 0x6C6C; // ll
+        vm.memory[2] = 0x6F20; // o_
+        vm.memory[3] = 0x576F; // Wo
+        vm.memory[4] = 0x726C; // rl
+        vm.memory[5] = 0x0064; // \0d
+        let instruction = Instruction::Trap {
+            routine: TrapCode::Putsp,
+        };
+        vm.execute_instruction(instruction);
+    }
+
+    #[test]
+    fn vm_halt() {
+        let mut vm = VirtualMachine::from_program([0; u16::MAX as usize]);
+        let instruction = Instruction::Trap {
+            routine: TrapCode::Halt,
+        };
+        vm.memory[0x3000] = instruction.encode();
+        vm.execute();
+        assert!(!vm.running);
+        // The actual test is if it returns, the vm should keep spinning in place without a halt
+    }
+
+    #[test]
+    fn vm_outc() {
+        let mut vm = VirtualMachine::new();
+        let instruction = Instruction::Trap {
+            routine: TrapCode::Out,
+        };
+        vm.registers[Register::R0 as usize] = 0x00FA;
+        vm.execute_instruction(instruction);
     }
 }
