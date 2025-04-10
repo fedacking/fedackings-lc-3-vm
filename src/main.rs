@@ -5,6 +5,10 @@ mod instructions;
 mod vm;
 
 fn main() {
-    let mut vm = VirtualMachine::from_image("binaries/2048.obj".to_string()).unwrap();
+    let path = match std::env::args().nth(1) {
+        Some(path) => path,
+        None => "binaries/2048.obj".to_string(),
+    };
+    let mut vm = VirtualMachine::from_image(path).unwrap();
     vm.execute();
 }
