@@ -1,7 +1,12 @@
 use std::{
     fs::File,
     io::{self, Read, Write},
+    time::Duration,
 };
+
+use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
+
+const KEYBOARD_TIMEOUT: u64 = 10;
 
 use crate::{
     instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
@@ -167,14 +172,27 @@ impl VirtualMachine {
 
     fn mem_read(&mut self, address: u16) -> u16 {
         if address == KeyboardAddresses::Status as u16 {
-            self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
-            self.memory[KeyboardAddresses::Data as usize] = match std::io::stdin().bytes().next() {
+            // We read the char from the bytes array, if it's empty or
+            // there's an error other than timed out, we send EOF to the program
+            // if it's timed out we assume no one was using the keyboards
+            let read_char: u16 = match std::io::stdin()
+                .with_timeout(Duration::from_millis(KEYBOARD_TIMEOUT))
+                .bytes()
+                .next()
+            {
                 Some(res) => match res {
                     Ok(c) => c as u16,
-                    Err(_) => 0x05,
+                    Err(err) => match err.kind() {
+                        io::ErrorKind::TimedOut => {
+                            return self.memory[address as usize];
+                        }
+                        _ => 0x05,
+                    },
                 },
                 None => 0x05,
             };
+            self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
+            self.memory[KeyboardAddresses::Data as usize] = read_char;
         }
         self.memory[address as usize]
     }

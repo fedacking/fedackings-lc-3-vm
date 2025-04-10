@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 termios = "0.3.3"
+timeout-readwrite = "0.4.0"
