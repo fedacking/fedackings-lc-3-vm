@@ -1,3 +1,8 @@
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VMError {
+    TrapCodeDecodeError{ repr: u16 },
+}
+
 /// Utility function that allows us to quickly just grab the specified bits
 fn from_bits(value: u16, size: u16, offset: u16) -> u16 {
     (value >> offset) & ((1 << size) - 1)
@@ -26,15 +31,17 @@ pub enum TrapCode {
 }
 
 impl TrapCode {
-    fn from_bits(value: u16) -> Self {
+    fn from_bits(value: u16) -> Result<Self, VMError> {
         match from_bits(value, 8, 0) {
-            0x20 => TrapCode::Getc,
-            0x21 => TrapCode::Out,
-            0x22 => TrapCode::Puts,
-            0x23 => TrapCode::In,
-            0x24 => TrapCode::Putsp,
-            0x25 => TrapCode::Halt,
-            _ => todo!(),
+            0x20 => Ok(TrapCode::Getc),
+            0x21 => Ok(TrapCode::Out),
+            0x22 => Ok(TrapCode::Puts),
+            0x23 => Ok(TrapCode::In),
+            0x24 => Ok(TrapCode::Putsp),
+            0x25 => Ok(TrapCode::Halt),
+            repr => {
+                Err(VMError::TrapCodeDecodeError { repr })
+            },
         }
     }
 }
@@ -308,74 +315,74 @@ impl Instruction {
         }
     }
 
-    pub fn decode(repr: u16) -> Self {
+    pub fn decode(repr: u16) -> Result<Self, VMError> {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
-            OperationCode::Branch => Instruction::Branch {
+            OperationCode::Branch => Ok(Instruction::Branch {
                 flag: from_bits(repr, 3, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::Add => Instruction::Add {
+            }),
+            OperationCode::Add => Ok(Instruction::Add {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),
                 source_2: Register::from_bits(repr, 0),
                 mode: from_bits(repr, 1, 5),
                 value: from_bits_signed(repr, 5, 0),
-            },
-            OperationCode::Load => Instruction::Load {
+            }),
+            OperationCode::Load => Ok(Instruction::Load {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::Store => Instruction::Store {
+            }),
+            OperationCode::Store => Ok(Instruction::Store {
                 source: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::JumpRegister => Instruction::JumpRegister {
+            }),
+            OperationCode::JumpRegister => Ok(Instruction::JumpRegister {
                 source: Register::from_bits(repr, 6),
                 mode: from_bits(repr, 1, 11),
                 offset: from_bits_signed(repr, 11, 0),
-            },
-            OperationCode::And => Instruction::And {
+            }),
+            OperationCode::And => Ok(Instruction::And {
                 destination: Register::from_bits(repr, 9),
                 source_1: Register::from_bits(repr, 6),
                 source_2: Register::from_bits(repr, 0),
                 mode: from_bits(repr, 1, 5),
                 value: from_bits_signed(repr, 5, 0),
-            },
-            OperationCode::LoadRegister => Instruction::LoadRegister {
+            }),
+            OperationCode::LoadRegister => Ok(Instruction::LoadRegister {
                 destination: Register::from_bits(repr, 9),
                 source: Register::from_bits(repr, 6),
                 offset: from_bits_signed(repr, 6, 0),
-            },
-            OperationCode::StoreRegister => Instruction::StoreRegister {
+            }),
+            OperationCode::StoreRegister => Ok(Instruction::StoreRegister {
                 source_1: Register::from_bits(repr, 9),
                 source_2: Register::from_bits(repr, 6),
                 offset: from_bits_signed(repr, 6, 0),
-            },
+            }),
             OperationCode::Rti => todo!(),
-            OperationCode::Not => Instruction::Not {
+            OperationCode::Not => Ok(Instruction::Not {
                 destination: Register::from_bits(repr, 9),
                 source: Register::from_bits(repr, 6),
-            },
-            OperationCode::LoadIndirect => Instruction::LoadIndirect {
+            }),
+            OperationCode::LoadIndirect => Ok(Instruction::LoadIndirect {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::StoreIndirect => Instruction::StoreIndirect {
+            }),
+            OperationCode::StoreIndirect => Ok(Instruction::StoreIndirect {
                 source: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::Jump => Instruction::Jump {
+            }),
+            OperationCode::Jump => Ok(Instruction::Jump {
                 source: Register::from_bits(repr, 6),
-            },
+            }),
             OperationCode::Reserved => todo!(),
-            OperationCode::LoadEffectiveAddress => Instruction::LoadEffectiveAddress {
+            OperationCode::LoadEffectiveAddress => Ok(Instruction::LoadEffectiveAddress {
                 destination: Register::from_bits(repr, 9),
                 offset: from_bits_signed(repr, 9, 0),
-            },
-            OperationCode::ExecuteTrap => Instruction::Trap {
-                routine: TrapCode::from_bits(repr),
-            },
+            }),
+            OperationCode::ExecuteTrap => Ok(Instruction::Trap {
+                routine: TrapCode::from_bits(repr)?,
+            }),
         }
     }
 }
@@ -407,6 +414,6 @@ mod tests {
             mode: 0,
             value: Register::R1 as u16,
         };
-        assert_eq!(instruction, decoded);
+        assert_eq!(instruction, decoded.unwrap());
     }
 }
