@@ -1,6 +1,9 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::{self, Read, Write}};
 
-use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode};
+use crate::{
+    instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
+    terminal::{self, KeyboardAddresses, restore, setup},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -140,12 +143,14 @@ impl VirtualMachine {
     /// Else it continues running over memory.
     pub fn execute(&mut self) {
         self.running = true;
+        let terminal = setup().unwrap(); // TODO: error handling
         while self.running {
             let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
             let instruction = Instruction::decode(self.mem_read(pc));
             self.execute_instruction(instruction);
         }
+        restore(&terminal).unwrap();
     }
 
     fn update_flags(&mut self, value: u16) {
@@ -159,7 +164,17 @@ impl VirtualMachine {
         }
     }
 
-    fn mem_read(&self, address: u16) -> u16 {
+    fn mem_read(&mut self, address: u16) -> u16 {
+        if address == KeyboardAddresses::Status as u16 {
+            self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
+            self.memory[KeyboardAddresses::Data as usize] = match std::io::stdin().bytes().next() {
+                Some(res) => match res {
+                    Ok(c) => c as u16,
+                    Err(_) => 0x05,
+                },
+                None => 0x05,
+            };
+        }
         self.memory[address as usize]
     }
 
@@ -273,7 +288,7 @@ impl VirtualMachine {
 
     /// Reads the memory location of the address in R0 to write characters until
     /// it finds \0\0 at the address location. One character per word
-    fn puts(&self) {
+    fn puts(&mut self) {
         let mut address = self.registers[Register::R0 as usize];
         let mut char = (self.mem_read(address) & 0x00FF) as u8 as char;
         while self.mem_read(address) != 0x0000 {
@@ -281,16 +296,15 @@ impl VirtualMachine {
             address += 1;
             char = (self.mem_read(address) & 0x00FF) as u8 as char;
         }
+        io::stdout().flush().unwrap(); // TODO: replace in error handling
     }
 
     /// Reads the memory location of the address in R0 to write characters until
     /// it finds the \0 char.
     /// Two characters per word
-    fn putsp(&self) {
+    fn putsp(&mut self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut chars = self.mem_read(address)
-            .to_le_bytes()
-            .map(|c| c as char);
+        let mut chars = self.mem_read(address).to_le_bytes().map(|c| c as char);
         while chars[0] != '\0' {
             print!("{}", chars[0]);
             if chars[1] == '\0' {
@@ -298,9 +312,7 @@ impl VirtualMachine {
             }
             print!("{}", chars[1]);
             address += 1;
-            chars = self.mem_read(address)
-                .to_le_bytes()
-                .map(|c| c as char);
+            chars = self.mem_read(address).to_le_bytes().map(|c| c as char);
         }
     }
 

@@ -4,7 +4,7 @@ use termios::{ECHO, ICANON, TCSANOW, Termios, tcsetattr};
 
 pub enum KeyboardAddresses {
     Status = 0xFE00,
-    Data = 0xFE02
+    Data = 0xFE02,
 }
 
 /// Disables the input buffering on the terminal. This is done by grabbing

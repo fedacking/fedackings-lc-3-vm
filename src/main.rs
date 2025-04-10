@@ -2,8 +2,8 @@ use instructions::{Instruction, TrapCode};
 use vm::VirtualMachine;
 
 mod instructions;
-mod vm;
 mod terminal;
+mod vm;
 
 fn main() {
     let path = match std::env::args().nth(1) {
