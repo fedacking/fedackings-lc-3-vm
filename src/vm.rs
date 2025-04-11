@@ -71,10 +71,7 @@ impl VirtualMachine {
             i += 2;
         }
 
-        let mut vm = VirtualMachine::from_program(program);
-        vm.registers[Register::PC as usize] = 0x3000;
-
-        Ok(vm)
+        Ok(VirtualMachine::from_program(program))
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) -> std::io::Result<()> {
