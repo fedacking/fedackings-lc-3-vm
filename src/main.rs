@@ -22,7 +22,7 @@ fn main() {
     match launch_vm(path) {
         Ok(_) => (),
         Err(err) => {
-            dbg!(err);
+            println!("{:?}", err);
         }
     };
 }
