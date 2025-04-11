@@ -1,4 +1,4 @@
-use instructions::{Instruction, TrapCode, VMError};
+use instructions::VMError;
 use terminal::{restore, setup};
 use vm::VirtualMachine;
 
