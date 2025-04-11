@@ -27,12 +27,18 @@ fn from_bits_signed(value: u16, size: u16, offset: u16) -> u16 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TrapCode {
-    Getc = 0x20,  /* get character from keyboard, not echoed onto the terminal */
-    Out = 0x21,   /* output a character */
-    Puts = 0x22,  /* output a word string */
-    In = 0x23,    /* get character from keyboard, echoed onto the terminal */
-    Putsp = 0x24, /* output a byte string */
-    Halt = 0x25,  /* halt the program */
+    /// get character from keyboard, not echoed onto the terminal
+    Getc = 0x20,
+    /// output a character
+    Out = 0x21,
+    /// output a word string
+    Puts = 0x22,
+    /// get character from keyboard, echoed onto the terminal
+    In = 0x23,
+    /// output a byte string
+    Putsp = 0x24,
+    /// halt the program
+    Halt = 0x25,
 }
 
 impl TrapCode {
@@ -209,6 +215,15 @@ pub enum Instruction {
     },
 }
 
+/// Instrction op code offset
+const OP_CODE_OFFSET: u16 = 12;
+/// Instruction first register offset
+const REGISTER_1_OFFSET: u16 = 9;
+/// Instruction second register offset
+const REGISTER_2_OFFSET: u16 = 6;
+/// Instruction immediate mode offset
+const IMM_OFFSET: u16 = 5;
+
 impl Instruction {
     // Testing utility function + gets used for generating binaries
     #[allow(dead_code)]
@@ -221,10 +236,10 @@ impl Instruction {
                 mode,
                 value,
             } => {
-                ((OperationCode::Add as u16) << 12)
-                    + ((destination as u16) << 9)
-                    + ((source_1 as u16) << 6)
-                    + (mode << 5)
+                ((OperationCode::Add as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
+                    + ((source_1 as u16) << REGISTER_2_OFFSET)
+                    + (mode << IMM_OFFSET)
                     + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
             }
             Instruction::And {
@@ -234,26 +249,26 @@ impl Instruction {
                 mode,
                 value,
             } => {
-                ((OperationCode::And as u16) << 12)
-                    + ((destination as u16) << 9)
-                    + ((source_1 as u16) << 6)
-                    + (mode << 5)
+                ((OperationCode::And as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
+                    + ((source_1 as u16) << REGISTER_2_OFFSET)
+                    + (mode << IMM_OFFSET)
                     + (value & 0x1F) // Kinda hack because value contains all of the bits of source_2
             }
             Instruction::Not {
                 destination,
                 source,
             } => {
-                ((OperationCode::Not as u16) << 12)
-                    + ((destination as u16) << 9)
-                    + ((source as u16) << 6)
+                ((OperationCode::Not as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
+                    + ((source as u16) << REGISTER_2_OFFSET)
             }
             Instruction::Load {
                 destination,
                 offset,
             } => {
-                ((OperationCode::Load as u16) << 12)
-                    + ((destination as u16) << 9)
+                ((OperationCode::Load as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
                     + (offset & 0x1FF)
             }
             Instruction::LoadRegister {
@@ -261,44 +276,49 @@ impl Instruction {
                 source,
                 offset,
             } => {
-                ((OperationCode::LoadRegister as u16) << 12)
-                    + ((destination as u16) << 9)
-                    + ((source as u16) << 6)
+                ((OperationCode::LoadRegister as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
+                    + ((source as u16) << REGISTER_2_OFFSET)
                     + (offset & 0x3F)
             }
             Instruction::LoadIndirect {
                 destination,
                 offset,
             } => {
-                ((OperationCode::LoadIndirect as u16) << 12)
-                    + ((destination as u16) << 9)
+                ((OperationCode::LoadIndirect as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
                     + (offset & 0x1FF)
             }
             Instruction::LoadEffectiveAddress {
                 destination,
                 offset,
             } => {
-                ((OperationCode::LoadEffectiveAddress as u16) << 12)
-                    + ((destination as u16) << 9)
+                ((OperationCode::LoadEffectiveAddress as u16) << OP_CODE_OFFSET)
+                    + ((destination as u16) << REGISTER_1_OFFSET)
                     + (offset & 0x1FF)
             }
             Instruction::Branch { flag, offset } => {
-                ((OperationCode::Branch as u16) << 12) + ((flag & 0x7) << 9) + (offset & 0x1FF)
+                ((OperationCode::Branch as u16) << OP_CODE_OFFSET)
+                    + ((flag & 0x7) << REGISTER_1_OFFSET)
+                    + (offset & 0x1FF)
             }
             Instruction::Jump { source } => {
-                ((OperationCode::Jump as u16) << 12) + ((source as u16) << 6)
+                ((OperationCode::Jump as u16) << OP_CODE_OFFSET)
+                    + ((source as u16) << REGISTER_2_OFFSET)
             }
             Instruction::JumpRegister {
                 source: _,
                 mode,
                 offset,
-            } => ((OperationCode::Jump as u16) << 12) + (mode << 11) + (offset & 0x7FF),
+            } => ((OperationCode::Jump as u16) << OP_CODE_OFFSET) + (mode << 11) + (offset & 0x7FF),
             Instruction::Store { source, offset } => {
-                ((OperationCode::Store as u16) << 12) + ((source as u16) << 9) + (offset & 0x1FF)
+                ((OperationCode::Store as u16) << OP_CODE_OFFSET)
+                    + ((source as u16) << REGISTER_1_OFFSET)
+                    + (offset & 0x1FF)
             }
             Instruction::StoreIndirect { source, offset } => {
-                ((OperationCode::StoreIndirect as u16) << 12)
-                    + ((source as u16) << 9)
+                ((OperationCode::StoreIndirect as u16) << OP_CODE_OFFSET)
+                    + ((source as u16) << REGISTER_1_OFFSET)
                     + (offset & 0x1FF)
             }
             Instruction::StoreRegister {
@@ -306,80 +326,80 @@ impl Instruction {
                 source_2,
                 offset,
             } => {
-                ((OperationCode::StoreRegister as u16) << 12)
-                    + ((source_1 as u16) << 9)
-                    + ((source_2 as u16) << 6)
+                ((OperationCode::StoreRegister as u16) << OP_CODE_OFFSET)
+                    + ((source_1 as u16) << REGISTER_1_OFFSET)
+                    + ((source_2 as u16) << REGISTER_2_OFFSET)
                     + (offset & 0x3F)
             }
             Instruction::Trap { routine } => {
-                ((OperationCode::ExecuteTrap as u16) << 12) + (routine as u16)
+                ((OperationCode::ExecuteTrap as u16) << OP_CODE_OFFSET) + (routine as u16)
             }
         }
     }
 
     pub fn decode(repr: u16) -> Result<Self, VMError> {
-        let code = OperationCode::from_u16(repr >> 12);
+        let code = OperationCode::from_u16(repr >> OP_CODE_OFFSET);
         match code {
             OperationCode::Branch => Ok(Instruction::Branch {
-                flag: from_bits(repr, 3, 9),
+                flag: from_bits(repr, 3, REGISTER_1_OFFSET),
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::Add => Ok(Instruction::Add {
-                destination: Register::from_bits(repr, 9)?,
-                source_1: Register::from_bits(repr, 6)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
+                source_1: Register::from_bits(repr, REGISTER_2_OFFSET)?,
                 source_2: Register::from_bits(repr, 0)?,
-                mode: from_bits(repr, 1, 5),
+                mode: from_bits(repr, 1, IMM_OFFSET),
                 value: from_bits_signed(repr, 5, 0),
             }),
             OperationCode::Load => Ok(Instruction::Load {
-                destination: Register::from_bits(repr, 9)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::Store => Ok(Instruction::Store {
-                source: Register::from_bits(repr, 9)?,
+                source: Register::from_bits(repr, REGISTER_1_OFFSET)?,
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::JumpRegister => Ok(Instruction::JumpRegister {
-                source: Register::from_bits(repr, 6)?,
+                source: Register::from_bits(repr, REGISTER_2_OFFSET)?,
                 mode: from_bits(repr, 1, 11),
                 offset: from_bits_signed(repr, 11, 0),
             }),
             OperationCode::And => Ok(Instruction::And {
-                destination: Register::from_bits(repr, 9)?,
-                source_1: Register::from_bits(repr, 6)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
+                source_1: Register::from_bits(repr, REGISTER_2_OFFSET)?,
                 source_2: Register::from_bits(repr, 0)?,
-                mode: from_bits(repr, 1, 5),
+                mode: from_bits(repr, 1, IMM_OFFSET),
                 value: from_bits_signed(repr, 5, 0),
             }),
             OperationCode::LoadRegister => Ok(Instruction::LoadRegister {
-                destination: Register::from_bits(repr, 9)?,
-                source: Register::from_bits(repr, 6)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
+                source: Register::from_bits(repr, REGISTER_2_OFFSET)?,
                 offset: from_bits_signed(repr, 6, 0),
             }),
             OperationCode::StoreRegister => Ok(Instruction::StoreRegister {
-                source_1: Register::from_bits(repr, 9)?,
-                source_2: Register::from_bits(repr, 6)?,
+                source_1: Register::from_bits(repr, REGISTER_1_OFFSET)?,
+                source_2: Register::from_bits(repr, REGISTER_2_OFFSET)?,
                 offset: from_bits_signed(repr, 6, 0),
             }),
             OperationCode::Rti => Err(VMError::ReservedInstruction { repr }),
             OperationCode::Not => Ok(Instruction::Not {
-                destination: Register::from_bits(repr, 9)?,
-                source: Register::from_bits(repr, 6)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
+                source: Register::from_bits(repr, REGISTER_2_OFFSET)?,
             }),
             OperationCode::LoadIndirect => Ok(Instruction::LoadIndirect {
-                destination: Register::from_bits(repr, 9)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::StoreIndirect => Ok(Instruction::StoreIndirect {
-                source: Register::from_bits(repr, 9)?,
+                source: Register::from_bits(repr, REGISTER_1_OFFSET)?,
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::Jump => Ok(Instruction::Jump {
-                source: Register::from_bits(repr, 6)?,
+                source: Register::from_bits(repr, REGISTER_2_OFFSET)?,
             }),
             OperationCode::Reserved => Err(VMError::ReservedInstruction { repr }),
             OperationCode::LoadEffectiveAddress => Ok(Instruction::LoadEffectiveAddress {
-                destination: Register::from_bits(repr, 9)?,
+                destination: Register::from_bits(repr, REGISTER_1_OFFSET)?,
                 offset: from_bits_signed(repr, 9, 0),
             }),
             OperationCode::ExecuteTrap => Ok(Instruction::Trap {

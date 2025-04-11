@@ -21,6 +21,8 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
+    // Suppresed dead code because it's useful for testing
+    #[allow(dead_code)]
     /// starts the visual machine with everything with 0s
     /// We use it for internal testing
     /// To launch a proper fm use from_program
@@ -32,9 +34,7 @@ impl VirtualMachine {
         }
     }
 
-    // Suppresed dead code because it's useful for testing
-    #[allow(dead_code)]
-    /// Starts a visual machines with the loaded program. All registers
+    /// Starts a virtual machines with the loaded program. All registers
     /// are started with 0s, except the Program counter, which starts at
     /// 0x3000. You can start it's execution with execute
     pub fn from_program(program: [u16; u16::MAX as usize]) -> Self {
@@ -61,16 +61,17 @@ impl VirtualMachine {
             });
         }
 
-        let mut vm = Self::new();
+        let mut program = [0; u16::MAX as usize];
         let mut address = (((buf[0] as u16) << 8) + buf[1] as u16) as usize;
         let mut i = 2;
 
         while i < (data - 1) {
-            vm.memory[address] = ((buf[i] as u16) << 8) + buf[i + 1] as u16;
+            program[address] = ((buf[i] as u16) << 8) + buf[i + 1] as u16;
             address += 1;
             i += 2;
         }
 
+        let mut vm = VirtualMachine::from_program(program);
         vm.registers[Register::PC as usize] = 0x3000;
 
         Ok(vm)
