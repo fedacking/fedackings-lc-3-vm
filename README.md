@@ -18,7 +18,7 @@ make build
 To run with one of the binaries, it has to be provided as a "path" commandline argument to make run. By default, it will run with binaries/2048.obj
 
 ```sh
-make run path=rogue.obj
+make run path=binaries/rogue.obj
 ```
 
 Tests can be executed with:
