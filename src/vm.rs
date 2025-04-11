@@ -9,7 +9,7 @@ use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 const KEYBOARD_TIMEOUT: u64 = 10;
 
 use crate::{
-    instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
+    instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode, VMError},
     terminal::KeyboardAddresses,
 };
 
@@ -46,16 +46,17 @@ impl VirtualMachine {
     }
 
     /// Starts a visual machines with the program that we read from file
-    pub fn from_image(path: String) -> Result<Self, std::io::Error> {
-        let mut file = File::open(path)?;
+    pub fn from_image(path: String) -> Result<Self, VMError> {
+        let mut file = File::open(path).map_err(|err| VMError::IO { err })?;
         let mut buf: Vec<u8> = vec![];
-        let data = file.read_to_end(&mut buf)?;
+        let data = file
+            .read_to_end(&mut buf)
+            .map_err(|err| VMError::IO { err })?;
 
         if data < 2 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "File too small!",
-            ));
+            return Err(VMError::IO {
+                err: std::io::Error::new(std::io::ErrorKind::Other, "File too small!"),
+            });
         }
 
         let mut vm = Self::new();
@@ -73,7 +74,7 @@ impl VirtualMachine {
         Ok(vm)
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) {
+    fn execute_instruction(&mut self, instruction: Instruction) -> std::io::Result<()> {
         match instruction {
             Instruction::Add {
                 destination,
@@ -142,21 +143,24 @@ impl VirtualMachine {
                 source_2,
                 offset,
             } => self.store_register(source_1, source_2, offset),
-            Instruction::Trap { routine } => self.trap(routine),
+            Instruction::Trap { routine } => self.trap(routine)?,
             Instruction::Noop => (),
         }
+        Ok(())
     }
 
     /// Starts the executions of the program. Stops on a TRAP_HALT instruction
     /// Else it continues running over memory.
-    pub fn execute(&mut self) {
+    pub fn execute(&mut self) -> Result<(), VMError> {
         self.running = true;
         while self.running {
             let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
-            let instruction = Instruction::decode(self.mem_read(pc));
-            self.execute_instruction(instruction);
+            let instruction = Instruction::decode(self.mem_read(pc))?;
+            self.execute_instruction(instruction)
+                .map_err(|err| VMError::IO { err })?;
         }
+        Ok(())
     }
 
     fn update_flags(&mut self, value: u16) {
@@ -296,20 +300,20 @@ impl VirtualMachine {
         self.memory[address] = self.registers[source_1 as usize];
     }
 
-    fn trap(&mut self, routine: TrapCode) {
+    fn trap(&mut self, routine: TrapCode) -> std::io::Result<()> {
         match routine {
-            TrapCode::Getc => self.getc(),
-            TrapCode::Out => self.putc(),
+            TrapCode::Getc => Ok(self.getc()),
+            TrapCode::Out => Ok(self.putc()),
             TrapCode::Puts => self.puts(),
-            TrapCode::In => self.input(),
-            TrapCode::Putsp => self.putsp(),
-            TrapCode::Halt => self.halt(),
+            TrapCode::In => Ok(self.input()),
+            TrapCode::Putsp => Ok(self.putsp()),
+            TrapCode::Halt => Ok(self.halt()),
         }
     }
 
     /// Reads the memory location of the address in R0 to write characters until
     /// it finds \0\0 at the address location. One character per word
-    fn puts(&mut self) {
+    fn puts(&mut self) -> std::io::Result<()> {
         let mut address = self.registers[Register::R0 as usize];
         let mut char = (self.mem_read(address) & 0x00FF) as u8 as char;
         while self.mem_read(address) != 0x0000 {
@@ -317,7 +321,7 @@ impl VirtualMachine {
             address += 1;
             char = (self.mem_read(address) & 0x00FF) as u8 as char;
         }
-        io::stdout().flush().unwrap(); // TODO: replace in error handling
+        io::stdout().flush()
     }
 
     /// Reads the memory location of the address in R0 to write characters until
@@ -877,5 +881,13 @@ mod tests {
         vm.execute();
 
         assert_eq!(vm.registers[Register::R0 as usize], 0x000A);
+    }
+
+    #[test]
+    fn fm_from_test_image_doesnt_exist() {
+        let err = VirtualMachine::from_image("doesnt exist".to_string())
+            .expect_err("Sending file tha doesn't exit");
+
+        assert!(matches!(err, VMError::IO { err }));
     }
 }
