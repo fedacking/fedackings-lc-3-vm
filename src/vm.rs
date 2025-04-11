@@ -23,7 +23,7 @@ pub struct VirtualMachine {
 impl VirtualMachine {
     // Suppresed dead code because it's useful for testing
     #[allow(dead_code)]
-    /// starts the visual machine with everything with 0s
+    /// starts the virtual machine with everything with 0s
     /// We use it for internal testing
     /// To launch a proper fm use from_program
     fn new() -> Self {
@@ -47,7 +47,7 @@ impl VirtualMachine {
         }
     }
 
-    /// Starts a visual machines with the program that we read from file
+    /// Starts a virtual machines with the program that we read from file
     pub fn from_image(path: String) -> Result<Self, VMError> {
         let mut file = File::open(path).map_err(|err| VMError::IO { err })?;
         let mut buf: Vec<u8> = vec![];
