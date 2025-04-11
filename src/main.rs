@@ -7,7 +7,7 @@ mod terminal;
 mod vm;
 
 fn launch_vm(path: String) -> Result<(), VMError> {
-    let mut vm = VirtualMachine::from_image(path).map_err(|err| VMError::IO { err })?;
+    let mut vm = VirtualMachine::from_image(path)?;
     let terminal = setup().map_err(|err| VMError::IO { err })?;
     vm.execute()?;
     restore(&terminal).map_err(|err| VMError::IO { err })?;

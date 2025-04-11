@@ -416,4 +416,17 @@ mod tests {
         };
         assert_eq!(instruction, decoded.unwrap());
     }
+
+    #[test]
+    fn fm_encode_error() {
+        // RegisterDecode
+        let e = Register::from_u16(0xF000).expect_err("Testing Register Decode Error");
+        assert!(matches!(e, VMError::RegisterDecode { repr: 0xF000 }));
+        // TrapCodeDecode
+        let e = Instruction::decode(0xF000).expect_err("Testing Trap Decode Error");
+        assert!(matches!(e, VMError::TrapCodeDecode { repr: 0x0000 }));
+        // ReservedInstruction
+        let e = Instruction::decode(0xD000).expect_err("Testing ReservedInstruction Error");
+        assert!(matches!(e, VMError::ReservedInstruction { repr: 0xD000 }));
+    }
 }

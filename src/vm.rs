@@ -46,16 +46,17 @@ impl VirtualMachine {
     }
 
     /// Starts a visual machines with the program that we read from file
-    pub fn from_image(path: String) -> Result<Self, std::io::Error> {
-        let mut file = File::open(path)?;
+    pub fn from_image(path: String) -> Result<Self, VMError> {
+        let mut file = File::open(path).map_err(|err| VMError::IO { err })?;
         let mut buf: Vec<u8> = vec![];
-        let data = file.read_to_end(&mut buf)?;
+        let data = file
+            .read_to_end(&mut buf)
+            .map_err(|err| VMError::IO { err })?;
 
         if data < 2 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "File too small!",
-            ));
+            return Err(VMError::IO {
+                err: std::io::Error::new(std::io::ErrorKind::Other, "File too small!"),
+            });
         }
 
         let mut vm = Self::new();
@@ -880,5 +881,13 @@ mod tests {
         vm.execute();
 
         assert_eq!(vm.registers[Register::R0 as usize], 0x000A);
+    }
+
+    #[test]
+    fn fm_from_test_image_doesnt_exist() {
+        let err = VirtualMachine::from_image("doesnt exist".to_string())
+            .expect_err("Sending file tha doesn't exit");
+
+        assert!(matches!(err, VMError::IO { err }));
     }
 }
