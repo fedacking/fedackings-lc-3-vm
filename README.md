@@ -5,7 +5,7 @@ Based on the following tutorial: https://www.jmeiners.com/lc3-vm/
 
 ## Included binaries
 
-The repo comes with 23included binaries to run, stored in the binaries folder for the purposes of testing and validating the VM. The first one is `binaries/test.obj` that prints an "@\n" in the terminal and halts. The second one is `binaries/2048.obj` that runs the 2048 game in the terminal. The third one is `binaries/rogue.obj` that runs the rogue game in the terminal.
+The repo comes with 3 included binaries to run, stored in the binaries folder for the purposes of testing and validating the VM. The first one is `binaries/test.obj` that prints an "@\n" in the terminal and halts. The second one is `binaries/2048.obj` that runs the 2048 game in the terminal. The third one is `binaries/rogue.obj` that runs the rogue game in the terminal.
 
 ## Building and running
 
