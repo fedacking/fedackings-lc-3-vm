@@ -1,6 +1,17 @@
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::{self, Read, Write},
+    time::Duration,
+};
 
-use crate::instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode};
+use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
+
+const KEYBOARD_TIMEOUT: u64 = 10;
+
+use crate::{
+    instructions::{ConditionFlag, Instruction, REGISTER_COUNTER, Register, TrapCode},
+    terminal::KeyboardAddresses,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMachine {
@@ -141,9 +152,9 @@ impl VirtualMachine {
     pub fn execute(&mut self) {
         self.running = true;
         while self.running {
-            let pc = self.registers[Register::PC as usize] as usize;
+            let pc = self.registers[Register::PC as usize];
             self.registers[Register::PC as usize] += 1;
-            let instruction = Instruction::decode(self.memory[pc]);
+            let instruction = Instruction::decode(self.mem_read(pc));
             self.execute_instruction(instruction);
         }
     }
@@ -157,6 +168,35 @@ impl VirtualMachine {
             std::cmp::Ordering::Equal => ConditionFlag::Zero as u16,
             std::cmp::Ordering::Greater => ConditionFlag::Positive as u16,
         }
+    }
+
+    fn mem_read(&mut self, address: u16) -> u16 {
+        if address == KeyboardAddresses::Status as u16 {
+            // We read the char from the bytes array, if there's an error other than timed out
+            // we send EOF to the program. if it's timed out or we recieve nothing
+            // we use 0xFFFF (which can never be the result from a u8) to set the keyboard status to 0
+            let read_char: u16 = match std::io::stdin()
+                .with_timeout(Duration::from_millis(KEYBOARD_TIMEOUT))
+                .bytes()
+                .next()
+            {
+                Some(res) => match res {
+                    Ok(c) => c as u16,
+                    Err(err) => match err.kind() {
+                        io::ErrorKind::TimedOut => 0xFFFF,
+                        _ => 0x05,
+                    },
+                },
+                None => 0xFFFF,
+            };
+            if read_char != 0xFFFF {
+                self.memory[KeyboardAddresses::Status as usize] = 1 << 15;
+                self.memory[KeyboardAddresses::Data as usize] = read_char;
+            } else {
+                self.memory[KeyboardAddresses::Status as usize] = 0;
+            }
+        }
+        self.memory[address as usize]
     }
 
     fn add(&mut self, destination: Register, source_1: Register, source_2: Register) {
@@ -192,22 +232,22 @@ impl VirtualMachine {
 
     fn load(&mut self, destination: Register, offset: u16) {
         let address = self.registers[Register::PC as usize].wrapping_add(offset);
-        let value = self.memory[address as usize];
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
 
     fn load_register(&mut self, destination: Register, source: Register, offset: u16) {
         let address = self.registers[source as usize].wrapping_add(offset);
-        let value = self.memory[address as usize];
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
 
     fn load_indirect(&mut self, destination: Register, offset: u16) {
         let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
-        let address = self.memory[meta_address as usize];
-        let value = self.memory[address as usize];
+        let address = self.mem_read(meta_address);
+        let value = self.mem_read(address);
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -246,9 +286,9 @@ impl VirtualMachine {
     }
 
     fn store_indirect(&mut self, source: Register, offset: u16) {
-        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset) as usize;
-        let address = self.memory[meta_address] as usize;
-        self.memory[address] = self.registers[source as usize];
+        let meta_address = self.registers[Register::PC as usize].wrapping_add(offset);
+        let address = self.mem_read(meta_address);
+        self.memory[address as usize] = self.registers[source as usize];
     }
 
     fn store_register(&mut self, source_1: Register, source_2: Register, offset: u16) {
@@ -269,24 +309,23 @@ impl VirtualMachine {
 
     /// Reads the memory location of the address in R0 to write characters until
     /// it finds \0\0 at the address location. One character per word
-    fn puts(&self) {
+    fn puts(&mut self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut char = (self.memory[address as usize] & 0x00FF) as u8 as char;
-        while self.memory[address as usize] != 0x0000 {
+        let mut char = (self.mem_read(address) & 0x00FF) as u8 as char;
+        while self.mem_read(address) != 0x0000 {
             print!("{}", char);
             address += 1;
-            char = (self.memory[address as usize] & 0x00FF) as u8 as char;
+            char = (self.mem_read(address) & 0x00FF) as u8 as char;
         }
+        io::stdout().flush().unwrap(); // TODO: replace in error handling
     }
 
     /// Reads the memory location of the address in R0 to write characters until
     /// it finds the \0 char.
     /// Two characters per word
-    fn putsp(&self) {
+    fn putsp(&mut self) {
         let mut address = self.registers[Register::R0 as usize];
-        let mut chars = self.memory[address as usize]
-            .to_le_bytes()
-            .map(|c| c as char);
+        let mut chars = self.mem_read(address).to_le_bytes().map(|c| c as char);
         while chars[0] != '\0' {
             print!("{}", chars[0]);
             if chars[1] == '\0' {
@@ -294,9 +333,7 @@ impl VirtualMachine {
             }
             print!("{}", chars[1]);
             address += 1;
-            chars = self.memory[address as usize]
-                .to_le_bytes()
-                .map(|c| c as char);
+            chars = self.mem_read(address).to_le_bytes().map(|c| c as char);
         }
     }
 

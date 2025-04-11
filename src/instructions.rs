@@ -273,7 +273,7 @@ impl Instruction {
                     + (offset & 0x1FF)
             }
             Instruction::Branch { flag, offset } => {
-                ((OperationCode::Branch as u16) << 12) + ((flag as u16) << 9) + (offset & 0x1FF)
+                ((OperationCode::Branch as u16) << 12) + ((flag & 0x7) << 9) + (offset & 0x1FF)
             }
             Instruction::Jump { source } => {
                 ((OperationCode::Jump as u16) << 12) + ((source as u16) << 6)
@@ -312,7 +312,7 @@ impl Instruction {
         let code = OperationCode::from_u16(repr >> 12);
         match code {
             OperationCode::Branch => Instruction::Branch {
-                flag: from_bits(repr, 9, 0),
+                flag: from_bits(repr, 3, 9),
                 offset: from_bits_signed(repr, 9, 0),
             },
             OperationCode::Add => Instruction::Add {
