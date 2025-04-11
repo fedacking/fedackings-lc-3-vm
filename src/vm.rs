@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
+use timeout_readwrite::TimeoutReadExt;
 
 const KEYBOARD_TIMEOUT: u64 = 10;
 
@@ -32,6 +32,8 @@ impl VirtualMachine {
         }
     }
 
+    // Suppresed dead code because it's useful for testing
+    #[allow(dead_code)]
     /// Starts a visual machines with the loaded program. All registers
     /// are started with 0s, except the Program counter, which starts at
     /// 0x3000. You can start it's execution with execute
@@ -144,7 +146,6 @@ impl VirtualMachine {
                 offset,
             } => self.store_register(source_1, source_2, offset),
             Instruction::Trap { routine } => self.trap(routine)?,
-            Instruction::Noop => (),
         }
         Ok(())
     }
@@ -223,7 +224,7 @@ impl VirtualMachine {
     }
 
     fn and_immediate(&mut self, destination: Register, source: Register, mut value: u16) {
-        value = value & self.registers[source as usize];
+        value &= self.registers[source as usize];
         self.registers[destination as usize] = value;
         self.update_flags(value);
     }
@@ -302,12 +303,27 @@ impl VirtualMachine {
 
     fn trap(&mut self, routine: TrapCode) -> std::io::Result<()> {
         match routine {
-            TrapCode::Getc => Ok(self.getc()),
-            TrapCode::Out => Ok(self.putc()),
+            TrapCode::Getc => {
+                self.getc();
+                Ok(())
+            }
+            TrapCode::Out => {
+                self.putc();
+                Ok(())
+            }
             TrapCode::Puts => self.puts(),
-            TrapCode::In => Ok(self.input()),
-            TrapCode::Putsp => Ok(self.putsp()),
-            TrapCode::Halt => Ok(self.halt()),
+            TrapCode::In => {
+                self.input();
+                Ok(())
+            }
+            TrapCode::Putsp => {
+                self.putsp();
+                Ok(())
+            }
+            TrapCode::Halt => {
+                self.halt();
+                Ok(())
+            }
         }
     }
 
@@ -391,7 +407,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 2);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -410,7 +427,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 5);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -429,7 +447,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 0xFFFF);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -448,7 +467,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 2;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize].wrapping_add(16), 0);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -468,7 +488,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R0 as usize] = u16::MAX;
         vm.registers[Register::R1 as usize] = 2;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 1);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -487,7 +508,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R0 as usize] = u16::MAX - 14;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 0);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -507,7 +529,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R0 as usize] = 0xFFF0;
         vm.registers[Register::R1 as usize] = 0x0FFF;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 0x0FF0);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -526,7 +549,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R0 as usize] = 0xFF00;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 0xFF00);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -542,7 +566,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R0 as usize] = 0xFF00;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 0x00FF);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -558,7 +583,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 45);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -575,7 +601,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.registers[Register::PC as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 45);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -592,7 +619,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.memory[45] = 42;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 42);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -610,7 +638,8 @@ mod tests {
         vm.memory[3] = 45;
         vm.memory[45] = 42;
         vm.registers[Register::PC as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 42);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -628,7 +657,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.memory[45] = 42;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 45);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -645,7 +675,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.memory[3] = 45;
         vm.memory[45] = 42;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::R0 as usize], 3);
         assert_eq!(
             vm.registers[Register::Cond as usize],
@@ -661,7 +692,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::Cond as usize] = ConditionFlag::Negative as u16;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 16);
     }
 
@@ -673,7 +705,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::Cond as usize] = ConditionFlag::Positive as u16;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 16);
     }
 
@@ -686,7 +719,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::PC as usize] = 3;
         vm.registers[Register::Cond as usize] = ConditionFlag::Negative as u16;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 3);
     }
 
@@ -698,7 +732,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::PC as usize] = 3;
         vm.registers[Register::R1 as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 6);
     }
 
@@ -712,7 +747,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::PC as usize] = 3;
         vm.registers[Register::R1 as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 0x8FF + 3);
     }
 
@@ -726,7 +762,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::PC as usize] = 3;
         vm.registers[Register::R1 as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.registers[Register::PC as usize], 6);
     }
 
@@ -738,7 +775,8 @@ mod tests {
         };
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 6;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         let address = (vm.registers[Register::PC as usize] + 0x40) as usize;
         assert_eq!(vm.memory[address], 6);
     }
@@ -753,7 +791,8 @@ mod tests {
         vm.registers[Register::R1 as usize] = 6;
         let address = (vm.registers[Register::PC as usize] + 0x40) as usize;
         vm.memory[address] = 50;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         assert_eq!(vm.memory[50], 6);
     }
 
@@ -767,7 +806,8 @@ mod tests {
         let mut vm = VirtualMachine::new();
         vm.registers[Register::R1 as usize] = 6;
         vm.registers[Register::R2 as usize] = 40;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
         let address = (40 + 0x40) as usize;
         assert_eq!(vm.memory[address], 6);
     }
@@ -833,7 +873,8 @@ mod tests {
         let instruction = Instruction::Trap {
             routine: TrapCode::Puts,
         };
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
     }
 
     /// You can run this single test to check the putsp, output should
@@ -850,7 +891,8 @@ mod tests {
         let instruction = Instruction::Trap {
             routine: TrapCode::Putsp,
         };
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
     }
 
     #[test]
@@ -872,7 +914,8 @@ mod tests {
             routine: TrapCode::Out,
         };
         vm.registers[Register::R0 as usize] = 0x00FA;
-        vm.execute_instruction(instruction);
+        vm.execute_instruction(instruction)
+            .expect("Execution Failed");
     }
 
     #[test]

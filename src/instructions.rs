@@ -1,4 +1,6 @@
 #[derive(Debug)]
+// Clippy doesn't like that repr doesn't get used, but it gets printed as part of the error handling
+#[allow(dead_code)]
 pub enum VMError {
     TrapCodeDecode { repr: u16 },
     RegisterDecode { repr: u16 },
@@ -205,10 +207,11 @@ pub enum Instruction {
     Trap {
         routine: TrapCode,
     },
-    Noop,
 }
 
 impl Instruction {
+    // Testing utility function + gets used for generating binaries
+    #[allow(dead_code)]
     pub fn encode(&self) -> u16 {
         match *self {
             Instruction::Add {
@@ -227,7 +230,7 @@ impl Instruction {
             Instruction::And {
                 destination,
                 source_1,
-                source_2,
+                source_2: _,
                 mode,
                 value,
             } => {
@@ -286,7 +289,7 @@ impl Instruction {
                 ((OperationCode::Jump as u16) << 12) + ((source as u16) << 6)
             }
             Instruction::JumpRegister {
-                source,
+                source: _,
                 mode,
                 offset,
             } => ((OperationCode::Jump as u16) << 12) + (mode << 11) + (offset & 0x7FF),
@@ -311,7 +314,6 @@ impl Instruction {
             Instruction::Trap { routine } => {
                 ((OperationCode::ExecuteTrap as u16) << 12) + (routine as u16)
             }
-            Instruction::Noop => 0,
         }
     }
 

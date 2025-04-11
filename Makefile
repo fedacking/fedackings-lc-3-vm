@@ -11,7 +11,7 @@ format-check:
 	cargo fmt --all -- --check
 
 clippy:
-	cargo clippy
+	cargo clippy -- -D warnings
 
 test:
 	cargo test
