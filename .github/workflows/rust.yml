@@ -1,0 +1,25 @@
+name: "Rust Format, Clippy and Test"
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Format
+      run: make format-check
+    - name: Clippy
+      run: make clippy
+    - name: Build
+      run: make build
+    - name: Run tests
+      run: make test
